@@ -697,7 +697,7 @@ static const char *match_capture (MatchState *ms, const char *s, int l) {
 static const char *match (MatchState *ms, const char *s, const char *p) {
   if (l_unlikely(ms->matchdepth-- == 0))
     luaL_error(ms->L, "pattern too complex");
-  init: /* using goto's to optimize tail recursion */
+  init: /* using goto to optimize tail recursion */
   if (p != ms->p_end) {  /* end of pattern? */
     switch (*p) {
       case '(': {  /* start capture */
@@ -1344,7 +1344,7 @@ static const char *get2digits (const char *s) {
 
 
 /*
-** Chech whether a conversion specification is valid. When called,
+** Check whether a conversion specification is valid. When called,
 ** first character in 'form' must be '%' and last character must
 ** be a valid conversion specifier. 'flags' are the accepted flags;
 ** 'precision' signals whether to accept a precision.

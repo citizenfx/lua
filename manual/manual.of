@@ -20,7 +20,7 @@ making it ideal for configuration, scripting,
 and rapid prototyping.
 
 Lua is implemented as a library, written in @emphx{clean C},
-the common subset of @N{Standard C} and C++.
+the common subset of @N{standard C} and C++.
 The Lua distribution includes a host program called @id{lua},
 which uses the Lua library to offer a complete,
 standalone Lua interpreter,
@@ -289,7 +289,7 @@ Whenever there is an error,
 an @def{error object}
 is propagated with information about the error.
 Lua itself only generates errors whose error object is a string,
-but programs may generate errors with
+but programs can generate errors with
 any value as the error object.
 It is up to the Lua program or its host to handle such error objects.
 For historical reasons,
@@ -298,7 +298,7 @@ even though it does not have to be a string.
 
 
 When you use @Lid{xpcall} (or @Lid{lua_pcall}, in C)
-you may give a @def{message handler}
+you can give a @def{message handler}
 to be called in case of errors.
 This function is called with the original error object
 and returns a new error object.
@@ -343,7 +343,7 @@ which is then called a @def{metamethod}.
 In the previous example, the key is the string @St{__add}
 and the metamethod is the function that performs the addition.
 Unless stated otherwise,
-a metamethod may in fact be any @x{callable value},
+a metamethod can in fact be any @x{callable value},
 which is either a function or a value with a @idx{__call} metamethod.
 
 You can query the metatable of any value
@@ -787,11 +787,8 @@ following the reverse order that they were marked.
 If any finalizer marks objects for collection during that phase,
 these marks have no effect.
 
-Finalizers cannot yield.
-Except for that, they can do anything,
-such as raise errors, create new objects,
-or even run the garbage collector.
-However, because they can run in unpredictable times,
+Finalizers cannot yield nor run the garbage collector.
+Because they can run in unpredictable times,
 it is good practice to restrict each finalizer
 to the minimum necessary to properly release
 its associated resource.
@@ -1147,7 +1144,9 @@ Lua also accepts @x{hexadecimal constants},
 which start with @T{0x} or @T{0X}.
 Hexadecimal constants also accept an optional fractional part
 plus an optional binary exponent,
-marked by a letter @Char{p} or @Char{P}.
+marked by a letter @Char{p} or @Char{P} and written in decimal.
+(For instance, @T{0x1.fp10} denotes 1984,
+which is @M{0x1f / 16} multiplied by @M{2@sp{10}}.)
 
 A numeric constant with a radix point or an exponent
 denotes a float;
@@ -1336,18 +1335,12 @@ Expressions are discussed in @See{expressions}.
 
 Before the assignment,
 the list of values is @emph{adjusted} to the length of
-the list of variables.@index{adjustment}
-If there are more values than needed,
-the excess values are thrown away.
-If there are fewer values than needed,
-the list is extended with @nil's.
-If the list of expressions ends with a function call,
-then all values returned by that call enter the list of values,
-before the adjustment
-(except when the call is enclosed in parentheses; see @See{expressions}).
+the list of variables @see{multires}.
 
-The assignment statement first evaluates all its expressions
-and only then the assignments are performed.
+If a variable is both assigned and read
+inside a multiple assignment,
+Lua ensures that all reads get the value of the variable
+before the assignment.
 Thus the code
 @verbatim{
 i = 3
@@ -1366,6 +1359,12 @@ and
 x, y, z = y, z, x
 }
 cyclically permutes the values of @id{x}, @id{y}, and @id{z}.
+
+Note that this guarantee covers only accesses
+syntactically inside the assignment statement.
+If a function or a metamethod called during the assignment
+changes the value of a variable,
+Lua gives no guarantees about the order of that access.
 
 An assignment to a global name @T{x = val}
 is equivalent to the assignment
@@ -1418,14 +1417,11 @@ labels in Lua are considered statements too:
 
 A label is visible in the entire block where it is defined,
 except inside nested functions.
-A goto may jump to any visible label as long as it does not
+A goto can jump to any visible label as long as it does not
 enter into the scope of a local variable.
 A label should not be declared
 where a label with the same name is visible,
 even if this other label has been declared in an enclosing block.
-
-Labels and empty statements are called @def{void statements},
-as they perform no actions.
 
 The @Rw{break} statement terminates the execution of a
 @Rw{while}, @Rw{repeat}, or @Rw{for} loop,
@@ -1679,8 +1675,9 @@ function calls are explained in @See{functioncall};
 table constructors are explained in @See{tableconstructor}.
 Vararg expressions,
 denoted by three dots (@Char{...}), can only be used when
-directly inside a vararg function;
+directly inside a variadic function;
 they are explained in @See{func-def}.
+
 
 Binary operators comprise arithmetic operators @see{arith},
 bitwise operators @see{bitwise},
@@ -1691,47 +1688,8 @@ the unary bitwise NOT @see{bitwise},
 the unary logical @Rw{not} @see{logic},
 and the unary @def{length operator} @see{len-op}.
 
-Both function calls and vararg expressions can result in multiple values.
-If a function call is used as a statement @see{funcstat},
-then its return list is adjusted to zero elements,
-thus discarding all returned values.
-If an expression is used as the last (or the only) element
-of a list of expressions,
-then no adjustment is made
-(unless the expression is enclosed in parentheses).
-In all other contexts,
-Lua adjusts the result list to one element,
-either discarding all values except the first one
-or adding a single @nil if there are no values.
-
-Here are some examples:
-@verbatim{
-f()                -- adjusted to 0 results
-g(f(), x)          -- f() is adjusted to 1 result
-g(x, f())          -- g gets x plus all results from f()
-a,b,c = f(), x     -- f() is adjusted to 1 result (c gets nil)
-a,b = ...          -- a gets the first vararg argument, b gets
-                   -- the second (both a and b can get nil if there
-                   -- is no corresponding vararg argument)
-
-a,b,c = x, f()     -- f() is adjusted to 2 results
-a,b,c = f()        -- f() is adjusted to 3 results
-return f()         -- returns all results from f()
-return ...         -- returns all received vararg arguments
-return x,y,f()     -- returns x, y, and all results from f()
-{f()}              -- creates a list with all results from f()
-{...}              -- creates a list with all vararg arguments
-{f(), nil}         -- f() is adjusted to 1 result
 }
 
-Any expression enclosed in parentheses always results in only one value.
-Thus,
-@T{(f(x,y,z))} is always a single value,
-even if @id{f} returns several values.
-(The value of @T{(f(x,y,z))} is the first value returned by @id{f}
-or @nil if @id{f} does not return any values.)
-
-}
 
 
 @sect3{arith| @title{Arithmetic Operators}
@@ -1838,8 +1796,9 @@ the library calls the metamethod of the other operand
 (if present) or it raises an error.
 Note that bitwise operators do not do this coercion.
 
-Nonetheless, it is always a good practice not to rely on these
-implicit coercions, as they are not always applied;
+It is always a good practice not to rely on the
+implicit coercions from strings to numbers,
+as they are not always applied;
 in particular, @T{"1"==1} is false and @T{"1"<1} raises an error
 @see{rel-ops}.
 These coercions exist mainly for compatibility and may be removed
@@ -1975,15 +1934,20 @@ character is one byte.)
 
 The length operator applied on a table
 returns a @x{border} in that table.
-A @def{border} in a table @id{t} is any natural number
+A @def{border} in a table @id{t} is any non-negative integer
 that satisfies the following condition:
 @verbatim{
-(border == 0 or t[border] ~= nil) and t[border + 1] == nil
+(border == 0 or t[border] ~= nil) and
+(t[border + 1] == nil or border == math.maxinteger)
 }
 In words,
-a border is any (natural) index present in the table
-that is followed by an absent index
-(or zero, when index 1 is absent).
+a border is any positive integer index present in the table
+that is followed by an absent index,
+plus two limit cases:
+zero, when index 1 is absent;
+and the maximum value for an integer, when that index is present.
+Note that keys that are not positive integers
+do not interfere with borders.
 
 A table with exactly one border is called a @def{sequence}.
 For instance, the table @T{{10, 20, 30, 40, 50}} is a sequence,
@@ -1992,12 +1956,9 @@ The table @T{{10, 20, 30, nil, 50}} has two borders (3 and 5),
 and therefore it is not a sequence.
 (The @nil at index 4 is called a @emphx{hole}.)
 The table @T{{nil, 20, 30, nil, nil, 60, nil}}
-has three borders (0, 3, and 6) and three holes
-(at indices 1, 4, and 5),
+has three borders (0, 3, and 6),
 so it is not a sequence, too.
 The table @T{{}} is a sequence with border 0.
-Note that non-natural keys do not interfere
-with whether a table is a sequence.
 
 When @id{t} is a sequence,
 @T{#t} returns its only border,
@@ -2011,7 +1972,7 @@ the memory addresses of its non-numeric keys.)
 
 The computation of the length of a table
 has a guaranteed worst time of @M{O(log n)},
-where @M{n} is the largest natural key in the table.
+where @M{n} is the largest integer key in the table.
 
 A program can modify the behavior of the length operator for
 any value but strings through the @idx{__len} metamethod @see{metatable}.
@@ -2088,9 +2049,9 @@ The order of the assignments in a constructor is undefined.
 (This order would be relevant only when there are repeated keys.)
 
 If the last field in the list has the form @id{exp}
-and the expression is a function call or a vararg expression,
+and the expression is a multires expression,
 then all values returned by this expression enter the list consecutively
-@see{functioncall}.
+@see{multires}.
 
 The field list can have an optional trailing separator,
 as a convenience for machine-generated code.
@@ -2141,7 +2102,7 @@ A call of the form @T{return @rep{functioncall}} not in the
 scope of a to-be-closed variable is called a @def{tail call}.
 Lua implements @def{proper tail calls}
 (or @def{proper tail recursion}):
-in a tail call,
+In a tail call,
 the called function reuses the stack entry of the calling function.
 Therefore, there is no limit on the number of nested tail calls that
 a program can execute.
@@ -2227,22 +2188,16 @@ initialized with the argument values:
 }
 When a Lua function is called,
 it adjusts its list of @x{arguments} to
-the length of its list of parameters,
-unless the function is a @def{vararg function},
+the length of its list of parameters @see{multires},
+unless the function is a @def{variadic function},
 which is indicated by three dots (@Char{...})
 at the end of its parameter list.
-A vararg function does not adjust its argument list;
+A variadic function does not adjust its argument list;
 instead, it collects all extra arguments and supplies them
 to the function through a @def{vararg expression},
 which is also written as three dots.
 The value of this expression is a list of all actual extra arguments,
-similar to a function with multiple results.
-If a vararg expression is used inside another expression
-or in the middle of a list of expressions,
-then its return list is adjusted to one element.
-If the expression is used as the last element of a list of expressions,
-then no adjustment is made
-(unless that last expression is enclosed in parentheses).
+similar to a function with multiple results @see{multires}.
 
 
 As an example, consider the following definitions:
@@ -2292,6 +2247,108 @@ t.a.b.c.f = function (self, @rep{params}) @rep{body} end
 
 }
 
+@sect3{multires| @title{Lists of expressions, multiple results,
+and adjustment}
+
+Both function calls and vararg expressions can result in multiple values.
+These expressions are called @def{multires expressions}.
+
+When a multires expression is used as the last element
+of a list of expressions,
+all results from the expression are added to the
+list of values produced by the list of expressions.
+Note that a single expression
+in a place that expects a list of expressions
+is the last expression in that (singleton) list.
+
+These are the places where Lua expects a list of expressions:
+@description{
+
+@item{A @rw{return} statement,
+for instance @T{return e1, e2, e3} @see{control}.}
+
+@item{A table constructor,
+for instance @T{{e1, e2, e3}} @see{tableconstructor}.}
+
+@item{The arguments of a function call,
+for instance @T{foo(e1, e2, e3)} @see{functioncall}.}
+
+@item{A multiple assignment,
+for instance @T{a , b, c = e1, e2, e3} @see{assignment}.}
+
+@item{A local declaration,
+for instance @T{local a , b, c = e1, e2, e3} @see{localvar}.}
+
+@item{The initial values in a generic @rw{for} loop,
+for instance @T{for k in e1, e2, e3 do ... end} @see{for}.}
+
+}
+In the last four cases,
+the list of values from the list of expressions
+must be @emph{adjusted} to a specific length:
+the number of parameters in a call to a non-variadic function
+@see{func-def},
+the number of variables in a multiple assignment or
+a local declaration,
+and exactly four values for a generic @rw{for} loop.
+The @def{adjustment} follows these rules:
+If there are more values than needed,
+the extra values are thrown away;
+if there are fewer values than needed,
+the list is extended with @nil's.
+When the list of expressions ends with a multires expression,
+all results from that expression enter the list of values
+before the adjustment.
+
+When a multires expression is used
+in a list of expressions without being the last element,
+or in a place where the syntax expects a single expression,
+Lua adjusts the result list of that expression to one element.
+As a particular case,
+the syntax expects a single expression inside a parenthesized expression;
+therefore, adding parentheses around a multires expression
+forces it to produce exactly one result.
+
+We seldom need to use a vararg expression in a place
+where the syntax expects a single expression.
+(Usually it is simpler to add a regular parameter before
+the variadic part and use that parameter.)
+When there is such a need,
+we recommend assigning the vararg expression
+to a single variable and using that variable
+in its place.
+
+Here are some examples of uses of mutlres expressions.
+In all cases, when the construction needs
+@Q{the n-th result} and there is no such result,
+it uses a @nil.
+@verbatim{
+print(x, f())      -- prints x and all results from f().
+print(x, (f()))    -- prints x and the first result from f().
+print(f(), x)      -- prints the first result from f() and x.
+print(1 + f())     -- prints 1 added to the first result from f().
+local x = ...      -- x gets the first vararg argument.
+x,y = ...          -- x gets the first vararg argument,
+                   -- y gets the second vararg argument.
+x,y,z = w, f()     -- x gets w, y gets the first result from f(),
+                   -- z gets the second result from f().
+x,y,z = f()        -- x gets the first result from f(),
+                   -- y gets the second result from f(),
+                   -- z gets the third result from f().
+x,y,z = f(), g()   -- x gets the first result from f(),
+                   -- y gets the first result from g(),
+                   -- z gets the second result from g().
+x,y,z = (f())      -- x gets the first result from f(), y and z get nil.
+return f()         -- returns all results from f().
+return x, ...      -- returns x and all received vararg arguments.
+return x,y,f()     -- returns x, y, and all results from f().
+{f()}              -- creates a list with all results from f().
+{...}              -- creates a list with all vararg arguments.
+{f(), 5}           -- creates a list with the first result from f() and 5.
+}
+
+}
+
 }
 
 @sect2{visibility| @title{Visibility Rules}
@@ -2301,6 +2358,7 @@ Lua is a lexically scoped language.
 The scope of a local variable begins at the first statement after
 its declaration and lasts until the last non-void statement
 of the innermost block that includes the declaration.
+(@emph{Void statements} are labels and empty statements.)
 Consider the following example:
 @verbatim{
 x = 10                -- global variable
@@ -2514,7 +2572,7 @@ In general,
 Lua's garbage collection can free or move internal memory
 and then invalidate pointers to internal strings.
 To allow a safe use of these pointers,
-The API guarantees that any pointer to a string in a stack index
+the API guarantees that any pointer to a string in a stack index
 is valid while the string value at that index is not removed from the stack.
 (It can be moved to another index, though.)
 When the index is a pseudo-index (referring to an upvalue),
@@ -2905,7 +2963,7 @@ static void *l_alloc (void *ud, void *ptr, size_t osize,
     return realloc(ptr, nsize);
 }
 }
-Note that @N{Standard C} ensures
+Note that @N{ISO C} ensures
 that @T{free(NULL)} has no effect and that
 @T{realloc(NULL,size)} is equivalent to @T{malloc(size)}.
 
@@ -3105,8 +3163,28 @@ The index must be the last index previously marked to be closed
 A @idx{__close} metamethod cannot yield
 when called through this function.
 
-(Exceptionally, this function was introduced in release 5.4.3.
-It is not present in previous 5.4 releases.)
+(This function was introduced in @N{release 5.4.3}.)
+
+}
+
+@APIEntry{int lua_closethread (lua_State *L, lua_State *from);|
+@apii{0,?,-}
+
+Resets a thread, cleaning its call stack and closing all pending
+to-be-closed variables.
+Returns a status code:
+@Lid{LUA_OK} for no errors in the thread
+(either the original error that stopped the thread or
+errors in closing methods),
+or an error status otherwise.
+In case of error,
+leaves the error object on the top of the stack.
+
+The parameter @id{from} represents the coroutine that is resetting @id{L}.
+If there is no such coroutine,
+this parameter can be @id{NULL}.
+
+(This function was introduced in @N{release 5.4.6}.)
 
 }
 
@@ -3267,6 +3345,8 @@ Returns the previous mode (@id{LUA_GCGEN} or @id{LUA_GCINC}).
 }
 For more details about these options,
 see @Lid{collectgarbage}.
+
+This function should not be called by a finalizer.
 
 }
 
@@ -3651,7 +3731,7 @@ Pops a key from the stack,
 and pushes a key@En{}value pair from the table at the given index,
 the @Q{next} pair after the given key.
 If there are no more elements in the table,
-then @Lid{lua_next} returns 0 and pushes nothing.
+then @Lid{lua_next} @N{returns 0} and pushes nothing.
 
 A typical table traversal looks like this:
 @verbatim{
@@ -3972,6 +4052,7 @@ Also @N{returns 0} if any of the indices are not valid.
 
 Similar to @Lid{lua_gettable}, but does a raw access
 (i.e., without metamethods).
+The value at @id{index} must be a table.
 
 }
 
@@ -4018,6 +4099,7 @@ For other values, this call @N{returns 0}.
 
 Similar to @Lid{lua_settable}, but does a raw assignment
 (i.e., without metamethods).
+The value at @id{index} must be a table.
 
 }
 
@@ -4102,15 +4184,9 @@ and then pops the top element.
 @APIEntry{int lua_resetthread (lua_State *L);|
 @apii{0,?,-}
 
-Resets a thread, cleaning its call stack and closing all pending
-to-be-closed variables.
-Returns a status code:
-@Lid{LUA_OK} for no errors in the thread
-(either the original error that stopped the thread or
-errors in closing methods),
-or an error status otherwise.
-In case of error,
-leaves the error object on the top of the stack.
+This function is deprecated;
+it is equivalent to @Lid{lua_closethread} with
+@id{from} being @id{NULL}.
 
 }
 
@@ -4340,7 +4416,7 @@ otherwise, returns @id{NULL}.
 }
 
 @APIEntry{void lua_toclose (lua_State *L, int index);|
-@apii{0,0,m}
+@apii{0,0,v}
 
 Marks the given index in the stack as a
 to-be-closed slot @see{to-be-closed}.
@@ -4356,6 +4432,9 @@ or there is a call to @Lid{lua_closeslot}.
 A slot marked as to-be-closed should not be removed from the stack
 by any other function in the API except @Lid{lua_settop} or @Lid{lua_pop},
 unless previously deactivated by @Lid{lua_closeslot}.
+
+This function raises an error if the value at the given slot
+neither has a @idx{__close} metamethod nor is a false value.
 
 This function should not be called for an index
 that is equal to or below an active to-be-closed slot.
@@ -4409,6 +4488,10 @@ to a string inside the Lua state @see{constchar}.
 This string always has a zero (@Char{\0})
 after its last character (as @N{in C}),
 but can contain other zeros in its body.
+
+This function can raise memory errors only
+when converting a number to a string
+(as then it may create a new string).
 
 }
 
@@ -4769,7 +4852,7 @@ the number of parameters of the function
 }
 
 @item{@id{isvararg}|
-true if the function is a vararg function
+true if the function is a variadic function
 (always true for @N{C functions}).
 }
 
@@ -5338,7 +5421,7 @@ Equivalent to the sequence
 @APIEntry{void luaL_buffsub (luaL_Buffer *B, int n);|
 @apii{?,?,-}
 
-Removes @id{n} bytes from the the buffer @id{B}
+Removes @id{n} bytes from the buffer @id{B}
 @seeC{luaL_Buffer}.
 The buffer must have at least that many bytes.
 
@@ -5475,8 +5558,8 @@ It is defined as the following macro:
 @verbatim{
 (luaL_loadfile(L, filename) || lua_pcall(L, 0, LUA_MULTRET, 0))
 }
-It returns @Lid{LUA_OK} if there are no errors,
-or an error code in case of errors @see{statuscodes}.
+It @N{returns 0} (@Lid{LUA_OK}) if there are no errors,
+or 1 in case of errors.
 
 }
 
@@ -5488,8 +5571,8 @@ It is defined as the following macro:
 @verbatim{
 (luaL_loadstring(L, str) || lua_pcall(L, 0, LUA_MULTRET, 0))
 }
-It returns @Lid{LUA_OK} if there are no errors,
-or an error code in case of errors @see{statuscodes}.
+It @N{returns 0} (@Lid{LUA_OK}) if there are no errors,
+or 1 in case of errors.
 
 }
 
@@ -5714,7 +5797,7 @@ with @id{tname} in the registry.
 
 Creates a new Lua state.
 It calls @Lid{lua_newstate} with an
-allocator based on the @N{standard C} allocation functions
+allocator based on the @N{ISO C} allocation functions
 and then sets a warning function and a panic function @see{C-error}
 that print messages to the standard error output.
 
@@ -6006,9 +6089,7 @@ to start the traceback.
 
 }
 
-@APIEntry{const char *luaL_typeerror (lua_State *L,
-                                      int arg,
-                                      const char *tname);|
+@APIEntry{int luaL_typeerror (lua_State *L, int arg, const char *tname);|
 @apii{0,0,v}
 
 Raises a type error for the argument @id{arg}
@@ -6225,6 +6306,8 @@ A zero means to not change that value.
 See @See{GC} for more details about garbage collection
 and some of these options.
 
+This function should not be called by a finalizer.
+
 }
 
 @LibEntry{dofile ([filename])|
@@ -6239,7 +6322,7 @@ to its caller.
 }
 
 @LibEntry{error (message [, level])|
-Raises an error @see{error} with @{message} as the error object.
+Raises an error @see{error} with @id{message} as the error object.
 This function never returns.
 
 Usually, @id{error} adds some information about the error position
@@ -6803,6 +6886,8 @@ When you require a module @id{modname} and
 This variable is only a reference to the real table;
 assignments to this variable do not change the
 table used by @Lid{require}.
+The real table is stored in the C registry @see{registry},
+indexed by the key @defid{LUA_LOADED_TABLE}, a string.
 
 }
 
@@ -6830,7 +6915,7 @@ including if necessary a path and an extension.
 @id{funcname} must be the exact name exported by the @N{C library}
 (which may depend on the @N{C compiler} and linker used).
 
-This function is not supported by @N{Standard C}.
+This functionality is not supported by @N{ISO C}.
 As such, it is only available on some platforms
 (Windows, Linux, Mac OS X, Solaris, BSD,
 plus other Unix systems that support the @id{dlfcn} standard).
@@ -6870,6 +6955,8 @@ A table to store loaders for specific modules
 This variable is only a reference to the real table;
 assignments to this variable do not change the
 table used by @Lid{require}.
+The real table is stored in the C registry @see{registry},
+indexed by the key @defid{LUA_PRELOAD_TABLE}, a string.
 
 }
 
@@ -7269,7 +7356,7 @@ according to the format string @id{fmt} @see{pack}.
 
 @LibEntry{string.packsize (fmt)|
 
-Returns the size of a string resulting from @Lid{string.pack}
+Returns the length of a string resulting from @Lid{string.pack}
 with the given format.
 The format string cannot have the variable-length options
 @Char{s} or @Char{z} @see{pack}.
@@ -7891,9 +7978,9 @@ Returns the arc sine of @id{x} (in radians).
 
 @LibEntry{math.atan (y [, x])|
 
-@index{atan2}
+@index{atan} @index{atan2}
 Returns the arc tangent of @T{y/x} (in radians),
-but uses the signs of both arguments to find the
+using the signs of both arguments to find the
 quadrant of the result.
 It also handles correctly the case of @id{x} being zero.
 
@@ -8509,7 +8596,7 @@ the returned status is this number.
 The default value for @id{code} is @true.
 
 If the optional second argument @id{close} is true,
-closes the Lua state before exiting.
+the function closes the Lua state before exiting @seeF{lua_close}.
 
 }
 
@@ -8689,13 +8776,13 @@ The returned table can contain all the fields returned by @Lid{lua_getinfo},
 with the string @id{what} describing which fields to fill in.
 The default for @id{what} is to get all information available,
 except the table of valid lines.
-If present,
-the option @Char{f}
+The option @Char{f}
 adds a field named @id{func} with the function itself.
-If present,
-the option @Char{L}
-adds a field named @id{activelines} with the table of
-valid lines.
+The option @Char{L} adds a field named @id{activelines}
+with the table of valid lines,
+provided the function is a Lua function.
+If the function has no debug information,
+the table is empty.
 
 For instance, the expression @T{debug.getinfo(1,"n").name} returns
 a name for the current function,
@@ -8917,12 +9004,16 @@ The options are:
 @item{@T{-i}| enter interactive mode after running @rep{script};}
 @item{@T{-l @rep{mod}}| @Q{require} @rep{mod} and assign the
   result to global @rep{mod};}
+@item{@T{-l @rep{g=mod}}| @Q{require} @rep{mod} and assign the
+  result to global @rep{g};}
 @item{@T{-v}| print version information;}
 @item{@T{-E}| ignore environment variables;}
 @item{@T{-W}| turn warnings on;}
 @item{@T{--}| stop handling options;}
 @item{@T{-}| execute @id{stdin} as a file and stop handling options.}
 }
+(The form @T{-l @rep{g=mod}} was introduced in @N{release 5.4.4}.)
+
 After handling its options, @id{lua} runs the given @emph{script}.
 When called without arguments,
 @id{lua} behaves as @T{lua -v -i}
@@ -8942,6 +9033,10 @@ Lua does not consult any environment variables.
 In particular,
 the values of @Lid{package.path} and @Lid{package.cpath}
 are set with the default paths defined in @id{luaconf.h}.
+To signal to the libraries that this option is on,
+the stand-alone interpreter sets the field
+@idx{"LUA_NOENV"} in the registry to a true value.
+Other libraries may consult this field for the same purpose.
 
 The options @T{-e}, @T{-l}, and @T{-W} are handled in
 the order they appear.
@@ -8984,7 +9079,7 @@ If there is a script,
 the script is called with arguments
 @T{arg[1]}, @Cdots, @T{arg[#arg]}.
 Like all chunks in Lua,
-the script is compiled as a vararg function.
+the script is compiled as a variadic function.
 
 In interactive mode,
 Lua repeatedly prompts and waits for a line.

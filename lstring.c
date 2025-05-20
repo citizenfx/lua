@@ -40,7 +40,7 @@ int luaS_eqlngstr (TString *a, TString *b) {
 #endif
   return (a == b) ||  /* same instance or... */
     ((len == b->u.lnglen) &&  /* equal length and ... */
-     (memcmp(getstr(a), getstr(b), len) == 0));  /* equal contents */
+     (memcmp(getlngstr(a), getlngstr(b), len) == 0));  /* equal contents */
 }
 
 
@@ -62,9 +62,9 @@ unsigned int luaS_hashlongstr (TString *ts) {
     size_t len = ts->u.lnglen;
 #if defined(GRIT_POWER_BLOB)
     if (ts->tt == LUA_VBLOBSTR)
-      return luaS_hash(getstr(ts), len, ts->hash);
+      return luaS_hash(getlngstr(ts), len, ts->hash);
 #endif
-    ts->hash = luaS_hash(getstr(ts), len, ts->hash);
+    ts->hash = luaS_hash(getlngstr(ts), len, ts->hash);
     ts->extra = 1;  /* now it has its hash */
   }
   return ts->hash;
@@ -169,6 +169,7 @@ static TString *createstrobj (lua_State *L, size_t l, int tag, unsigned int h) {
 TString *luaS_createlngstrobj (lua_State *L, size_t l) {
   TString *ts = createstrobj(L, l, LUA_VLNGSTR, G(L)->seed);
   ts->u.lnglen = l;
+  ts->shrlen = 0xFF;  /* signals that it is a long string */
   return ts;
 }
 
@@ -205,7 +206,7 @@ static TString *internshrstr (lua_State *L, const char *str, size_t l) {
   TString **list = &tb->hash[lmod(h, tb->size)];
   lua_assert(str != NULL);  /* otherwise 'memcmp'/'memcpy' are undefined */
   for (ts = *list; ts != NULL; ts = ts->u.hnext) {
-    if (l == ts->shrlen && (memcmp(str, getstr(ts), l * sizeof(char)) == 0)) {
+    if (l == ts->shrlen && (memcmp(str, getshrstr(ts), l * sizeof(char)) == 0)) {
       /* found! */
       if (isdead(g, ts))  /* dead (but not collected yet)? */
         changewhite(ts);  /* resurrect it */
@@ -218,8 +219,8 @@ static TString *internshrstr (lua_State *L, const char *str, size_t l) {
     list = &tb->hash[lmod(h, tb->size)];  /* rehash with new size */
   }
   ts = createstrobj(L, l, LUA_VSHRSTR, h);
-  memcpy(getstr(ts), str, l * sizeof(char));
   ts->shrlen = cast_byte(l);
+  memcpy(getshrstr(ts), str, l * sizeof(char));
   ts->u.hnext = *list;
   *list = ts;
   tb->nuse++;
@@ -235,38 +236,29 @@ TString *luaS_newlstr (lua_State *L, const char *str, size_t l) {
     return internshrstr(L, str, l);
   else {
     TString *ts;
-    if (l_unlikely(l >= (MAX_SIZE - sizeof(TString))/sizeof(char)))
+    if (l_unlikely(l * sizeof(char) >= (MAX_SIZE - sizeof(TString))))
       luaM_toobig(L);
     ts = luaS_createlngstrobj(L, l);
-    memcpy(getstr(ts), str, l * sizeof(char));
+    memcpy(getlngstr(ts), str, l * sizeof(char));
     return ts;
   }
 }
 
 #if defined(GRIT_POWER_BLOB)
-#define blob_length(l) (((l) <= LUAI_MAXSHORTLEN) ? (LUAI_MAXSHORTLEN + 1) : (l));
-TString *luaS_newblob (lua_State *L, size_t l) {
-  l = blob_length(l);
-  if (l_unlikely(l >= (MAX_SIZE - sizeof(TString))/sizeof(char)))
+TString *luaS_newblob (lua_State *L, const char* str, size_t l) {
+  TString *ts;
+  if (l_unlikely(l * sizeof(char) >= (MAX_SIZE - sizeof(TString))))
     luaM_toobig(L);
+  ts = createstrobj(L, l, LUA_VBLOBSTR, G(L)->seed);
+  ts->u.lnglen = l;
+  ts->shrlen = 0xFF; /* signals that it is a long string */
+  if (str) {
+    memcpy(getlngstr(ts), str, l * sizeof(char));
+  }
   else {
-    TString *ts = createstrobj(L, l, LUA_VBLOBSTR, G(L)->seed);
-    ts->u.lnglen = l;
-    memset(getstr(ts), 0, l * sizeof(char));
-    return ts;
+    memset(getlngstr(ts), 0, l * sizeof(char));
   }
-  return NULL;
-}
-
-TString *luaS_asblob (lua_State *L, TString *str) {
-  if (str->tt == LUA_VBLOBSTR)
-    return NULL;
-  else {  /* This can be optimized, memset + memcpy is redundant*/
-    const size_t l = tsslen(str);
-    TString *blob = luaS_newblob(L, l);
-    memcpy(getstr(blob), getstr(str), l);
-    return blob;
-  }
+  return ts;
 }
 #endif
 

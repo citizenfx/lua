@@ -1,7 +1,10 @@
+0  ICON  "../etc/lua.ico"
+
+#if 0
+
 #include <winver.h>
 #include "../lua.h"
 
-0  ICON  "../etc/lua.ico"
 
 #if defined(GCC_WINDRES) || !defined(MSVC)
 VS_VERSION_INFO VERSIONINFO
@@ -53,3 +56,5 @@ BEGIN
     VALUE "Translation", 0x0409, 1252
   END
 END
+
+#endif

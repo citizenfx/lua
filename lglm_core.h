@@ -98,13 +98,13 @@ static LUA_INLINE int vecgets (const TValue *obj, const char *k, StkId res) {
 }
 
 /* rawgeti variant for vector types */
-LUAI_FUNC int glmVec_rawgeti (const TValue *obj, lua_Integer n, StkId res);
+LUAI_FUNC int glmVec_rawgeti(lua_State *L, const TValue *obj, lua_Integer n);
 
-/* getfield variant for vector types */
-LUAI_FUNC int glmVec_rawgets (const TValue *obj, const char *k, StkId res);
+/* fast-path getfield variant for vector types */
+LUAI_FUNC int glmVec_get1(lua_State *L, const TValue *obj, const char *k);
 
 /* rawget variant for matrix types */
-LUAI_FUNC int glmVec_rawget (const TValue *obj, TValue *key, StkId res);
+LUAI_FUNC int glmVec_rawget(lua_State *L, const TValue *obj);
 
 /* OP_GETTABLE variant for vector types. */
 LUAI_FUNC void glmVec_get (lua_State *L, const TValue *obj, TValue *key, StkId res);
@@ -127,8 +127,8 @@ LUAI_FUNC int glmVec_tostr (const TValue *obj, char *buff, size_t len);
 /* Check whether key 'k1' is equal to the key in node 'n2'. */
 LUAI_FUNC int glmVec_equalKey (const TValue *k1, const Node *n2, int rtt);
 
-/* Compute the hash of the vector key: The key comes broken (tag in 'ktt' and value in 'vkl') */
-LUAI_FUNC size_t glmVec_hash (const Value *kvl, int ktt);
+/* Compute the hash of the vector obj */
+LUAI_FUNC size_t glmVec_hash (const TValue *obj);
 
 /* Return true if each vector component is finite */
 LUAI_FUNC int glmVec_isfinite (const TValue *obj);
@@ -180,10 +180,10 @@ static LUA_INLINE int matgeti (const TValue *obj, lua_Integer n, StkId res) {
 LUAI_FUNC GCMatrix *glmMat_new (lua_State *L);
 
 /* rawgeti variant for matrix types */
-LUAI_FUNC int glmMat_rawgeti (const TValue *obj, lua_Integer n, StkId res);
+LUAI_FUNC int glmMat_rawgeti(lua_State *L, const TValue *obj, lua_Integer n);
 
 /* rawget variant for matrix types */
-LUAI_FUNC int glmMat_rawget (const TValue *obj, TValue *key, StkId res);
+LUAI_FUNC int glmMat_rawget(lua_State *L, const TValue *obj);
 
 /* lua_rawset variant for matrix types */
 LUAI_FUNC void glmMat_rawset (lua_State *L, const TValue *obj, TValue *key, TValue *val);

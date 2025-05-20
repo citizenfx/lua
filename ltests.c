@@ -44,7 +44,7 @@
 void *l_Trick = 0;
 
 
-#define obj_at(L,k)	s2v(L->ci->func + (k))
+#define obj_at(L,k)	s2v(L->ci->func.p + (k))
 
 
 static int runC (lua_State *L, lua_State *L1, const char *pc);
@@ -57,7 +57,7 @@ static void setnameval (lua_State *L, const char *name, int val) {
 
 
 static void pushobject (lua_State *L, const TValue *o) {
-  setobj2s(L, L->top, o);
+  setobj2s(L, L->top.p, o);
   api_incr_top(L);
 }
 
@@ -73,8 +73,9 @@ static void badexit (const char *fmt, const char *s1, const char *s2) {
 
 
 static int tpanic (lua_State *L) {
-  const char *msg = lua_tostring(L, -1);
-  if (msg == NULL) msg = "error object is not a string";
+  const char *msg = (lua_type(L, -1) == LUA_TSTRING)
+                  ? lua_tostring(L, -1)
+                  : "error object is not a string";
   return (badexit("PANIC: unprotected error in call to Lua API (%s)\n",
                    msg, NULL),
           0);  /* do not return to Lua */
@@ -423,7 +424,7 @@ static void checkLclosure (global_State *g, LClosure *cl) {
     if (uv) {
       checkobjrefN(g, clgc, uv);
       if (!upisopen(uv))
-        checkvalref(g, obj2gco(uv), uv->v);
+        checkvalref(g, obj2gco(uv), uv->v.p);
     }
   }
 }
@@ -432,7 +433,7 @@ static void checkLclosure (global_State *g, LClosure *cl) {
 static int lua_checkpc (CallInfo *ci) {
   if (!isLua(ci)) return 1;
   else {
-    StkId f = ci->func;
+    StkId f = ci->func.p;
     Proto *p = clLvalue(s2v(f))->p;
     return p->code <= ci->u.l.savedpc &&
            ci->u.l.savedpc <= p->code + p->sizecode;
@@ -445,19 +446,19 @@ static void checkstack (global_State *g, lua_State *L1) {
   CallInfo *ci;
   UpVal *uv;
   assert(!isdead(g, L1));
-  if (L1->stack == NULL) {  /* incomplete thread? */
+  if (L1->stack.p == NULL) {  /* incomplete thread? */
     assert(L1->openupval == NULL && L1->ci == NULL);
     return;
   }
   for (uv = L1->openupval; uv != NULL; uv = uv->u.open.next)
     assert(upisopen(uv));  /* must be open */
-  assert(L1->top <= L1->stack_last);
-  assert(L1->tbclist <= L1->top);
+  assert(L1->top.p <= L1->stack_last.p);
+  assert(L1->tbclist.p <= L1->top.p);
   for (ci = L1->ci; ci != NULL; ci = ci->previous) {
-    assert(ci->top <= L1->stack_last);
+    assert(ci->top.p <= L1->stack_last.p);
     assert(lua_checkpc(ci));
   }
-  for (o = L1->stack; o < L1->stack_last; o++)
+  for (o = L1->stack.p; o < L1->stack_last.p; o++)
     checkliveness(L1, s2v(o));  /* entire stack must have valid values */
 }
 
@@ -469,7 +470,7 @@ static void checkrefs (global_State *g, GCObject *o) {
       break;
     }
     case LUA_VUPVAL: {
-      checkvalref(g, o, gco2upv(o)->v);
+      checkvalref(g, o, gco2upv(o)->v.p);
       break;
     }
     case LUA_VTABLE: {
@@ -541,7 +542,7 @@ static void checkobject (global_State *g, GCObject *o, int maybedead,
 
 static lu_mem checkgraylist (global_State *g, GCObject *o) {
   int total = 0;  /* count number of elements in the list */
-  ((void)g);  /* better to keep it available if we need to print an object */
+  cast_void(g);  /* better to keep it if we need to print an object */
   while (o) {
     assert(!!isgray(o) ^ (getage(o) == G_TOUCHED2));
     assert(!testbit(o->marked, TESTBIT));
@@ -988,7 +989,7 @@ static int hash_query (lua_State *L) {
 
 static int stacklevel (lua_State *L) {
   unsigned long a = 0;
-  lua_pushinteger(L, (L->top - L->stack));
+  lua_pushinteger(L, (L->top.p - L->stack.p));
   lua_pushinteger(L, stacksize(L));
   lua_pushinteger(L, L->nCcalls);
   lua_pushinteger(L, L->nci);
@@ -1048,7 +1049,7 @@ static int string_query (lua_State *L) {
     TString *ts;
     int n = 0;
     for (ts = tb->hash[s]; ts != NULL; ts = ts->u.hnext) {
-      setsvalue2s(L, L->top, ts);
+      setsvalue2s(L, L->top.p, ts);
       api_incr_top(L);
       n++;
     }
@@ -1063,7 +1064,7 @@ static int tref (lua_State *L) {
   luaL_checkany(L, 1);
   lua_pushvalue(L, 1);
   lua_pushinteger(L, luaL_ref(L, LUA_REGISTRYINDEX));
-  (void)level;  /* to avoid warnings */
+  cast_void(level);  /* to avoid warnings */
   lua_assert(lua_gettop(L) == level+1);  /* +1 for result */
   return 1;
 }
@@ -1071,7 +1072,7 @@ static int tref (lua_State *L) {
 static int getref (lua_State *L) {
   int level = lua_gettop(L);
   lua_rawgeti(L, LUA_REGISTRYINDEX, luaL_checkinteger(L, 1));
-  (void)level;  /* to avoid warnings */
+  cast_void(level);  /* to avoid warnings */
   lua_assert(lua_gettop(L) == level+1);
   return 1;
 }
@@ -1079,7 +1080,7 @@ static int getref (lua_State *L) {
 static int unref (lua_State *L) {
   int level = lua_gettop(L);
   luaL_unref(L, LUA_REGISTRYINDEX, cast_int(luaL_checkinteger(L, 1)));
-  (void)level;  /* to avoid warnings */
+  cast_void(level);  /* to avoid warnings */
   lua_assert(lua_gettop(L) == level);
   return 0;
 }
@@ -1541,7 +1542,7 @@ static int runC (lua_State *L, lua_State *L1, const char *pc) {
       lua_newthread(L1);
     }
     else if EQ("resetthread") {
-      lua_pushinteger(L1, lua_resetthread(L1));
+      lua_pushinteger(L1, lua_resetthread(L1));  /* deprecated */
     }
     else if EQ("newuserdata") {
       lua_newuserdata(L1, getnum);
@@ -1657,6 +1658,14 @@ static int runC (lua_State *L, lua_State *L1, const char *pc) {
       int nres;
       status = lua_resume(lua_tothread(L1, i), L, getnum, &nres);
     }
+    else if EQ("traceback") {
+      const char *msg = getstring;
+      int level = getnum;
+      luaL_traceback(L1, L1, msg, level);
+    }
+    else if EQ("threadstatus") {
+      lua_pushstring(L1, statcodes[lua_status(L1)]);
+    }
     else if EQ("return") {
       int n = getnum;
       if (L1 != L) {
@@ -1748,7 +1757,7 @@ static struct X { int x; } x;
     else if EQ("tostring") {
       const char *s = lua_tostring(L1, getindex);
       const char *s1 = lua_pushstring(L1, s);
-      (void)s1;  /* to avoid warnings */
+      cast_void(s1);  /* to avoid warnings */
       lua_longassert((s == NULL && s1 == NULL) || strcmp(s, s1) == 0);
     }
     else if EQ("Ltolstring") {

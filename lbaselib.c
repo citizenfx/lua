@@ -188,11 +188,19 @@ static int luaB_rawset (lua_State *L) {
 
 
 static int pushmode (lua_State *L, int oldmode) {
-  lua_pushstring(L, (oldmode == LUA_GCINC) ? "incremental"
-                                           : "generational");
+  if (oldmode == -1)
+    luaL_pushfail(L);  /* invalid call to 'lua_gc' */
+  else
+    lua_pushstring(L, (oldmode == LUA_GCINC) ? "incremental"
+                                             : "generational");
   return 1;
 }
 
+
+/*
+** check whether call to 'lua_gc' was valid (not inside a finalizer)
+*/
+#define checkvalres(res) { if (res == -1) break; }
 
 static int luaB_collectgarbage (lua_State *L) {
   static const char *const opts[] = {"stop", "restart", "collect",
@@ -206,12 +214,14 @@ static int luaB_collectgarbage (lua_State *L) {
     case LUA_GCCOUNT: {
       int k = lua_gc(L, o);
       int b = lua_gc(L, LUA_GCCOUNTB);
+      checkvalres(k);
       lua_pushnumber(L, (lua_Number)k + ((lua_Number)b/1024));
       return 1;
     }
     case LUA_GCSTEP: {
       int step = (int)luaL_optinteger(L, 2, 0);
       int res = lua_gc(L, o, step);
+      checkvalres(res);
       lua_pushboolean(L, res);
       return 1;
     }
@@ -219,11 +229,13 @@ static int luaB_collectgarbage (lua_State *L) {
     case LUA_GCSETSTEPMUL: {
       int p = (int)luaL_optinteger(L, 2, 0);
       int previous = lua_gc(L, o, p);
+      checkvalres(previous);
       lua_pushinteger(L, previous);
       return 1;
     }
     case LUA_GCISRUNNING: {
       int res = lua_gc(L, o);
+      checkvalres(res);
       lua_pushboolean(L, res);
       return 1;
     }
@@ -240,10 +252,13 @@ static int luaB_collectgarbage (lua_State *L) {
     }
     default: {
       int res = lua_gc(L, o);
+      checkvalres(res);
       lua_pushinteger(L, res);
       return 1;
     }
   }
+  luaL_pushfail(L);  /* invalid call (inside a finalizer) */
+  return 1;
 }
 
 
@@ -322,7 +337,8 @@ static int luaB_each (lua_State *L) {
 ** Traversal function for 'ipairs'
 */
 static int ipairsaux (lua_State *L) {
-  lua_Integer i = luaL_checkinteger(L, 2) + 1;
+  lua_Integer i = luaL_checkinteger(L, 2);
+  i = luaL_intop(+, i, 1);
   lua_pushinteger(L, i);
   return (lua_geti(L, 1, i) == LUA_TNIL) ? 1 : 2;
 }

@@ -73,3 +73,5 @@ ipch/
 *.vcxproj
 *.sln
 *.filters
+
+.vscode/

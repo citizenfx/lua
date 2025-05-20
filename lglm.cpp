@@ -61,33 +61,36 @@ extern LUA_API_LINKAGE {
 #define glm_typeError(L, O, M) (luaG_typeerror((L), (O), (M)), 0)
 #define glm_finishset(L, T, K, V) (luaV_finishset((L), (T), (K), (V), GLM_NULLPTR), 1)
 
-#define _gettop(L) (cast_int((L)->top - ((L)->ci->func + 1)))
+#define _gettop(L) (cast_int((L)->top.p - ((L)->ci->func.p + 1)))
 #define _isvalid(L, o) (!ttisnil(o) || o != &G(L)->nilvalue)
 #define _ispseudo(i) ((i) <= LUA_REGISTRYINDEX)
+
+#define svalue(o) getstr(tsvalue(o))
+#define vslen(o) tsslen(tsvalue(o))
 
 /* index2value copied from lapi.c */
 static TValue *glm_index2value(lua_State *L, int idx) {
   CallInfo *ci = L->ci;
   if (idx > 0) {
-    StkId o = ci->func + idx;
-    api_check(L, idx <= L->ci->top - (ci->func + 1), "unacceptable index");
-    return (o >= L->top) ? &G(L)->nilvalue : s2v(o);
+    StkId o = ci->func.p + idx;
+    api_check(L, idx <= L->ci->top.p - (ci->func.p + 1), "unacceptable index");
+    return (o >= L->top.p) ? &G(L)->nilvalue : s2v(o);
   }
   else if (!_ispseudo(idx)) { /* negative index */
-    api_check(L, idx != 0 && -idx <= L->top - (ci->func + 1), "invalid index");
-    return s2v(L->top + idx);
+    api_check(L, idx != 0 && -idx <= L->top.p - (ci->func.p + 1), "invalid index");
+    return s2v(L->top.p + idx);
   }
   else if (idx == LUA_REGISTRYINDEX)
     return &G(L)->l_registry;
   else { /* upvalues */
     idx = LUA_REGISTRYINDEX - idx;
     api_check(L, idx <= MAXUPVAL + 1, "upvalue index too large");
-    if (ttisCclosure(s2v(ci->func))) { /* C closure? */
-      CClosure *func = clCvalue(s2v(ci->func));
+    if (ttisCclosure(s2v(ci->func.p))) { /* C closure? */
+      CClosure *func = clCvalue(s2v(ci->func.p));
       return (idx <= func->nupvalues) ? &func->upvalue[idx - 1] : &G(L)->nilvalue;
     }
     else { /* light C function or Lua function (through a hook)?) */
-      api_check(L, ttislcf(s2v(ci->func)), "caller not a C function");
+      api_check(L, ttislcf(s2v(ci->func.p)), "caller not a C function");
       return &G(L)->nilvalue; /* no upvalues */
     }
   }
@@ -230,28 +233,37 @@ static LUA_INLINE glm::length_t swizzle(const glm::qua<T, Q> &q, const char *key
   return swizzle(v, key, out);
 }
 
-int glmVec_rawgeti(const TValue *obj, lua_Integer n, StkId res) {
-  if (vecgeti(obj, n, res) == LUA_TNONE)
-    setnilvalue(s2v(res));
-
-  return ttypetag(s2v(res));
+static LUA_INLINE int glm_finishrawget(lua_State *L, int result) {
+  if (result == LUA_TNONE) {
+    setnilvalue(s2v(L->top.p));
+    result = LUA_TNIL;
+  }
+  api_incr_top(L);
+  lua_unlock(L);
+  return novariant(result);
 }
 
-int glmVec_rawgets(const TValue *obj, const char *k, StkId res) {
-  // This function is to interface with 'lua_getfield'. The length of the string
-  // must be recomputed.
-  const int result = strlen(k) == 1 ? vecgets(obj, k, res) : LUA_TNONE;
-  if (result == LUA_TNONE)
-    setnilvalue(s2v(res));
-
-  return ttypetag(s2v(res));
+int glmVec_rawgeti(lua_State *L, const TValue *obj, lua_Integer n) {
+  return glm_finishrawget(L, vecgeti(obj, n, L->top.p));
 }
 
-int glmVec_rawget(const TValue *obj, TValue *key, StkId res) {
+int glmVec_get1(lua_State *L, const TValue *obj, const char *k) {
+  int result = strlen(k) == 1 ? vecgets(obj, k, L->top.p) : LUA_TNONE;
+  if (result != LUA_TNONE) {
+    api_incr_top(L);
+    lua_unlock(L);
+  }
+  return result;
+}
+
+int glmVec_rawget(lua_State* L, const TValue *obj) {
+  TValue* key = s2v(L->top.p - 1);
+  L->top.p--; /* remove key */
+
   int result = LUA_TNONE;
   switch (ttype(key)) {
     case LUA_TNUMBER: {
-      result = vecgeti(obj, glm_tointeger(key), res);
+      result = vecgeti(obj, glm_tointeger(key), L->top.p);
       break;
     }
     case LUA_TSTRING: {
@@ -259,16 +271,13 @@ int glmVec_rawget(const TValue *obj, TValue *key, StkId res) {
       // logic the 'n' (shorthand dimensionality) field will be exposed by this
       // function.
       if (vslen(key) == 1)
-        result = vecgets(obj, svalue(key), res);
+        result = vecgets(obj, svalue(key), L->top.p);
       break;
     }
     default:
       break;
   }
-
-  if (result == LUA_TNONE)
-    setnilvalue(s2v(res));
-  return ttypetag(s2v(res));
+  return glm_finishrawget(L, result);
 }
 
 void glmVec_geti(lua_State *L, const TValue *obj, lua_Integer c, StkId res) {
@@ -370,8 +379,8 @@ int glmVec_equalObj(lua_State *L, const TValue *o1, const TValue *o2, int rtt) {
   if (result == false && L != GLM_NULLPTR) {
     const TValue *tm = luaT_gettmbyobj(L, o1, TM_EQ);
     if (!notm(tm)) {
-      luaT_callTMres(L, tm, o1, o2, L->top);  /* call TM */
-      result = !l_isfalse(s2v(L->top));
+      luaT_callTMres(L, tm, o1, o2, L->top.p);  /* call TM */
+      result = !l_isfalse(s2v(L->top.p));
     }
   }
   return result;
@@ -433,13 +442,13 @@ int glmVec_equalKey(const TValue *k1, const Node *n2, int rtt) {
   }
 }
 
-size_t glmVec_hash(const Value *kvl, int ktt) {
+size_t glmVec_hash(const TValue *obj) {
   // Uses a custom glm::hash implementation without the dependency on std::hash
-  switch (withvariant(ktt)) {
-    case LUA_VVECTOR2: return glm::hash::hash(glm_vvalue_raw(*kvl).v2);
-    case LUA_VVECTOR3: return glm::hash::hash(glm_vvalue_raw(*kvl).v3);
-    case LUA_VVECTOR4: return glm::hash::hash(glm_vvalue_raw(*kvl).v4);
-    case LUA_VQUAT: return glm::hash::hash(glm_vvalue_raw(*kvl).q);
+  switch (ttypetag(obj)) {
+    case LUA_VVECTOR2: return glm::hash::hash(glm_vecvalue(obj).v2);
+    case LUA_VVECTOR3: return glm::hash::hash(glm_vecvalue(obj).v3);
+    case LUA_VVECTOR4: return glm::hash::hash(glm_vecvalue(obj).v4);
+    case LUA_VQUAT: return glm::hash::hash(glm_vecvalue(obj).q);
     default:
       return 0xDEAD;  // C0D3
   }
@@ -605,18 +614,14 @@ GCMatrix *glmMat_new(lua_State *L) {
   return mat;
 }
 
-int glmMat_rawgeti(const TValue *obj, lua_Integer n, StkId res) {
-  if (matgeti(obj, n, res) == LUA_TNONE)
-    setnilvalue(s2v(res));
-  return ttypetag(s2v(res));
+int glmMat_rawgeti(lua_State *L, const TValue *obj, lua_Integer n) {
+  return glm_finishrawget(L, matgeti(obj, n, L->top.p));
 }
 
-int glmMat_rawget(const TValue *obj, TValue *key, StkId res) {
-  if (ttisnumber(key))
-    return glmMat_rawgeti(obj, glm_tointeger(key), res);
-
-  setnilvalue(s2v(res));
-  return LUA_TNIL;
+int glmMat_rawget(lua_State *L, const TValue *obj) {
+  TValue *key = s2v(L->top.p - 1);
+  L->top.p--; /* remove key */
+  return glm_finishrawget(L, ttisnumber(key) ? glmMat_rawgeti(L, obj, glm_tointeger(key)) : LUA_TNONE);
 }
 
 void glmMat_rawset(lua_State *L, const TValue *obj, TValue *key, TValue *val) {
@@ -700,7 +705,7 @@ int glmMat_next(const TValue *obj, StkId key) {
   TValue *key_value = s2v(key);
   if (ttisnil(key_value)) {
     setivalue(key_value, 1);
-    glmMat_rawgeti(obj, 1, key + 1);
+    matgeti(obj, 1, key + 1);
     return 1;
   }
   else if (ttisnumber(key_value)) {
@@ -708,7 +713,7 @@ int glmMat_next(const TValue *obj, StkId key) {
     const glm::length_t nextIdx = i_glmlen(l_nextIdx);
     if (nextIdx >= 1 && nextIdx <= mvalue(obj).size) {
       setivalue(key_value, l_nextIdx);  // Iterator values are 1-based
-      glmMat_rawgeti(obj, l_nextIdx, key + 1);
+      matgeti(obj, l_nextIdx, key + 1);
       return 1;
     }
   }
@@ -761,8 +766,8 @@ int glmMat_equalObj(lua_State *L, const TValue *o1, const TValue *o2) {
   if (!result && L != GLM_NULLPTR) {
     const TValue *tm = luaT_gettmbyobj(L, o1, TM_EQ);
     if (!notm(tm)) {
-      luaT_callTMres(L, tm, o1, o2, L->top);  /* call TM */
-      result = !l_isfalse(s2v(L->top));
+      luaT_callTMres(L, tm, o1, o2, L->top.p);  /* call TM */
+      result = !l_isfalse(s2v(L->top.p));
     }
   }
 
@@ -836,7 +841,7 @@ LUA_API int glm_pushvec(lua_State *L, const glmVector &v, glm::length_t dimensio
     lua_pushnumber(L, cast_num(v.v1.x));
   else if (novariant(variant) == LUA_TVECTOR) {
     lua_lock(L);
-    glm_setvvalue2s(L->top, v, variant);
+    glm_setvvalue2s(L->top.p, v, variant);
     api_incr_top(L);
     lua_unlock(L);
   }
@@ -851,7 +856,7 @@ LUA_API int glm_pushvec(lua_State *L, const glmVector &v, glm::length_t dimensio
 
 LUA_API int glm_pushvec_quat(lua_State *L, const glmVector &q) {
   lua_lock(L);
-  glm_setvvalue2s(L->top, q, LUA_VQUAT);
+  glm_setvvalue2s(L->top.p, q, LUA_VQUAT);
   api_incr_top(L);
   lua_unlock(L);
   return 1;
@@ -869,7 +874,7 @@ LUA_API int glm_pushmat(lua_State *L, const glmMatrix &m) {
   lua_lock(L);
   mat = glmMat_new(L);
   glm_mat_boundary(&mat->mat4) = m;
-  glm_setmvalue2s(L, L->top, mat);
+  glm_setmvalue2s(L, L->top.p, mat);
   api_incr_top(L);
   luaC_checkGC(L);
   lua_unlock(L);

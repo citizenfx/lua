@@ -3,8 +3,16 @@
 
 print "testing closures"
 
+do  -- bug in 5.4.7
+  _ENV[true] = 10
+  local function aux () return _ENV[1 < 2] end
+  assert(aux() == 10)
+  _ENV[true] = nil
+end
+
+
 local A,B = 0,{g=10}
-function f(x)
+local function f(x)
   local a = {}
   for i=1,1000 do
     local y = 0
@@ -89,6 +97,7 @@ assert(r == "a" and s == "b")
 
 
 -- testing closures with 'for' control variable x break
+local f
 for i=1,3 do
   f = function () return i end
   break
@@ -139,7 +148,7 @@ assert(b('get') == 'xuxu')
 b('set', 10); assert(b('get') == 14)
 
 
-local w
+local y, w
 -- testing multi-level closure
 function f(x)
   return function (y)
@@ -230,6 +239,7 @@ t()
 -- test for debug manipulation of upvalues
 local debug = require'debug'
 
+local foo1, foo2, foo3
 do
   local a , b, c = 3, 5, 7
   foo1 = function () return a+b end;

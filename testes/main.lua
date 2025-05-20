@@ -27,17 +27,19 @@ do
 end
 print("progname: "..progname)
 
-local prepfile = function (s, p)
-  p = p or prog
-  io.output(p)
-  io.write(s)
-  assert(io.close())
+
+local prepfile = function (s, mod, p)
+  mod = mod and "wb" or "w"    -- mod true means binary files
+  p = p or prog                -- file to write the program
+  local f = io.open(p, mod)
+  f:write(s)
+  assert(f:close())
 end
 
 local function getoutput ()
-  io.input(out)
-  local t = io.read("a")
-  io.input():close()
+  local f = io.open(out)
+  local t = f:read("a")
+  f:close()
   assert(os.remove(out))
   return t
 end
@@ -65,10 +67,11 @@ local function RUN (p, ...)
   assert(os.execute(s))
 end
 
+
 local function NoRun (msg, p, ...)
   p = string.gsub(p, "lua", '"'..progname..'"', 1)
   local s = string.format(p, ...)
-  s = string.format("%s 2> %s", s, out)  -- will send error to 'out'
+  s = string.format("%s >%s 2>&1", s, out)  -- send output and error to 'out'
   assert(not os.execute(s))
   assert(string.find(getoutput(), msg, 1, true))  -- check error message
 end
@@ -92,6 +95,33 @@ checkout("1\tnil\n")
 
 RUN('echo "print(10)\nprint(2)\n" | lua > %s', out)
 checkout("10\n2\n")
+
+
+-- testing BOM
+prepfile("\xEF\xBB\xBF")
+RUN('lua %s > %s', prog, out)
+checkout("")
+
+prepfile("\xEF\xBB\xBFprint(3)")
+RUN('lua %s > %s', prog, out)
+checkout("3\n")
+
+prepfile("\xEF\xBB\xBF# comment!!\nprint(3)")
+RUN('lua %s > %s', prog, out)
+checkout("3\n")
+
+-- bad BOMs
+prepfile("\xEF", true)
+NoRun("unexpected symbol", 'lua %s', prog)
+
+prepfile("\xEF\xBB", true)
+NoRun("unexpected symbol", 'lua %s', prog)
+
+prepfile("\xEFprint(3)", true)
+NoRun("unexpected symbol", 'lua %s', prog)
+
+prepfile("\xEF\xBBprint(3)", true)
+NoRun("unexpected symbol", 'lua %s', prog)
 
 
 -- test option '-'
@@ -186,7 +216,7 @@ convert("a;b;;c")
 
 -- test -l over multiple libraries
 prepfile("print(1); a=2; return {x=15}")
-prepfile(("print(a); print(_G['%s'].x)"):format(prog), otherprog)
+prepfile(("print(a); print(_G['%s'].x)"):format(prog), false, otherprog)
 RUN('env LUA_PATH="?;;" lua -l %s -l%s -lstring -l io %s > %s', prog, otherprog, otherprog, out)
 checkout("1\n2\n15\n2\n15\n")
 
@@ -194,6 +224,13 @@ checkout("1\n2\n15\n2\n15\n")
 prepfile("print(str.upper'alo alo', m.max(10, 20))")
 RUN("lua -l 'str=string' '-lm=math' -e 'print(m.sin(0))' %s > %s", prog, out)
 checkout("0.0\nALO ALO\t20\n")
+
+
+-- test module names with version sufix ("libs/lib2-v2")
+RUN("env LUA_CPATH='./libs/?.so' lua -l lib2-v2 -e 'print(lib2.id())' > %s",
+    out)
+checkout("true\n")
+
 
 -- test 'arg' table
 local a = [[
@@ -210,7 +247,7 @@ RUN('lua "-e " -- %s a b c', prog)   -- "-e " runs an empty command
 
 -- test 'arg' availability in libraries
 prepfile"assert(arg)"
-prepfile("assert(arg)", otherprog)
+prepfile("assert(arg)", false, otherprog)
 RUN('env LUA_PATH="?;;" lua -l%s - < %s', prog, otherprog)
 
 -- test messing up the 'arg' table
@@ -261,6 +298,34 @@ u2 = setmetatable({}, {__gc = function () error("ZYX") end})
 RUN('lua -W %s 2> %s', prog, out)
 checkprogout("ZYX)\nXYZ)\n")
 
+-- bug since 5.2: finalizer called when closing a state could
+-- subvert finalization order
+prepfile[[
+-- should be called last
+print("creating 1")
+setmetatable({}, {__gc = function () print(1) end})
+
+print("creating 2")
+setmetatable({}, {__gc = function ()
+  print("2")
+  print("creating 3")
+  -- this finalizer should not be called, as object will be
+  -- created after 'lua_close' has been called
+  setmetatable({}, {__gc = function () print(3) end})
+  print(collectgarbage())    -- cannot call collector here
+  os.exit(0, true)
+end})
+]]
+RUN('lua -W %s > %s', prog, out)
+checkout[[
+creating 1
+creating 2
+2
+creating 3
+nil
+1
+]]
+
 
 -- test many arguments
 prepfile[[print(({...})[30])]]
@@ -284,7 +349,12 @@ prepfile("a = [[b\nc\nd\ne]]\n=a")
 RUN([[lua -e"_PROMPT='' _PROMPT2=''" -i < %s > %s]], prog, out)
 checkprogout("b\nc\nd\ne\n\n")
 
-prompt = "alo"
+-- input interrupted in continuation line
+prepfile("a.\n")
+RUN([[lua -i < %s > /dev/null 2> %s]], prog, out)
+checkprogout("near <eof>\n")
+
+local prompt = "alo"
 prepfile[[ --
 a = 2
 ]]
@@ -335,7 +405,7 @@ NoRun("error object is a table value", [[lua %s]], prog)
 
 
 -- chunk broken in many lines
-s = [=[ --
+local s = [=[ --
 function f ( x )
   local a = [[
 xuxu
@@ -357,12 +427,10 @@ checkprogout("101\n13\t22\n\n")
 prepfile[[#comment in 1st line without \n at the end]]
 RUN('lua %s', prog)
 
-prepfile[[#test line number when file starts with comment line
-debug = require"debug"
-print(debug.getinfo(1).currentline)
-]]
+-- first-line comment with binary file
+prepfile("#comment\n" .. string.dump(load("print(3)")), true)
 RUN('lua %s > %s', prog, out)
-checkprogout('3\n')
+checkout('3\n')
 
 -- close Lua with an open file
 prepfile(string.format([[io.output(%q); io.write('alo')]], out))

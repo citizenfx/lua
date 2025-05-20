@@ -91,7 +91,7 @@ extern LUA_API_LINKAGE {
 
 /* lua_gettop() macro */
 #if !defined(_gettop)
-#define _gettop(L) cast_int((L)->top - ((L)->ci->func + 1))
+#define _gettop(L) cast_int((L)->top.p - ((L)->ci->func.p + 1))
 #define _isvalid(L, o) (!ttisnil(o) || o != &G(L)->nilvalue)
 #endif
 
@@ -108,9 +108,9 @@ extern LUA_API_LINKAGE {
 ** indices; see related function index2stack.
 */
 static LUA_INLINE const TValue *glm_i2v(lua_State *L, int idx) {
-  const StkId o = L->ci->func + idx;
-  api_check(L, idx <= L->ci->top - (L->ci->func + 1), "invalid index");
-  return (o >= L->top) ? &G(L)->nilvalue : s2v(o);
+  const StkId o = L->ci->func.p + idx;
+  api_check(L, idx <= L->ci->top.p - (L->ci->func.p + 1), "invalid index");
+  return (o >= L->top.p) ? &G(L)->nilvalue : s2v(o);
 }
 
 /*
@@ -578,7 +578,7 @@ struct gLuaBase {
         LB.idx++;
 
         glm_mvalue(o) = m;
-        setobj2s(L_, L_->top, o); // lua_pushvalue
+        setobj2s(L_, L_->top.p, o); // lua_pushvalue
         api_incr_top(L_);
         lua_unlock(L_);
         return 1;

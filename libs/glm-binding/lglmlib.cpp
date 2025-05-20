@@ -220,9 +220,9 @@ extern "C" {
     /* Setup default metatables */
     lua_lock(L);
     if (G(L)->mt[LUA_TVECTOR] == GLM_NULLPTR)
-      G(L)->mt[LUA_TVECTOR] = hvalue(s2v(L->top - 1));
+      G(L)->mt[LUA_TVECTOR] = hvalue(s2v(L->top.p - 1));
     if (G(L)->mt[LUA_TMATRIX] == GLM_NULLPTR)
-      G(L)->mt[LUA_TMATRIX] = hvalue(s2v(L->top - 1));
+      G(L)->mt[LUA_TMATRIX] = hvalue(s2v(L->top.p - 1));
     lua_unlock(L);
 
     return 1;
