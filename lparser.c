@@ -1172,7 +1172,9 @@ static void suffixedexp (LexState *ls, expdesc *v) {
   /* suffixedexp ->
        primaryexp { '.' NAME | '[' exp ']' | ':' NAME funcargs | funcargs } */
   FuncState *fs = ls->fs;
+#if defined(GRIT_POWER_SAFENAV)
   int exits = NO_JUMP, exited = 0;
+#endif
   primaryexp(ls, v);
   for (;;) {
 #if defined(GRIT_POWER_SAFENAV)
@@ -1180,6 +1182,9 @@ static void suffixedexp (LexState *ls, expdesc *v) {
       luaK_codeABCk(fs, OP_TESTSET, NO_REG, luaK_exp2anyreg(fs, v), 0, 0);
       luaK_concat(fs, &exits, luaK_jump(fs));
       exited = 1;
+    }
+    else {
+      exited = 0;
     }
 #endif
     switch (ls->t.token) {
@@ -1213,6 +1218,7 @@ static void suffixedexp (LexState *ls, expdesc *v) {
         break;
       }
       default: {
+#if defined(GRIT_POWER_SAFENAV)
         if (exited) {
           luaX_syntaxerror(ls, "expected suffixed expression after '?'");
         }
@@ -1221,10 +1227,10 @@ static void suffixedexp (LexState *ls, expdesc *v) {
           luaK_concat(fs, &v->f, exits);
           luaK_dischargevars(fs, v);
         }
+#endif
         return;
       }
     }
-    exited = 0;
   }
 }
 

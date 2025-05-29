@@ -49,7 +49,9 @@ static const char *const luaX_tokens [] = {
     "//", "..", "...", "==", ">=", "<=", "~=",
     "<<", ">>", "::", "<eof>",
     "<number>", "<integer>", "<name>", "<string>"
+#if defined(GRIT_POWER_JOAAT)
     , "<hash>"
+#endif
 #if defined(GRIT_POWER_COMPOUND)
     , "+=", "-=", "*=", "/=", "<<=", ">>=", "&=", "|=", "^="
 #endif
