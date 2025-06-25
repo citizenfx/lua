@@ -1168,9 +1168,7 @@ static void primaryexp (LexState *ls, expdesc *v) {
   }
 }
 
-static void suffixedexp (LexState *ls, expdesc *v) {
-  /* suffixedexp ->
-       primaryexp { '.' NAME | '[' exp ']' | ':' NAME funcargs | funcargs } */
+static int suffixedcondexp (LexState *ls, expdesc *v) {
   FuncState *fs = ls->fs;
 #if defined(GRIT_POWER_SAFENAV)
   int exits = NO_JUMP, exited = 0;
@@ -1222,18 +1220,30 @@ static void suffixedexp (LexState *ls, expdesc *v) {
         if (exited) {
           luaX_syntaxerror(ls, "expected suffixed expression after '?'");
         }
-        /* add our jumps to the `exit when false` list, so that they can get fixed up later by exp2reg */
-        if (exits != NO_JUMP) {
-          luaK_concat(fs, &v->f, exits);
-          luaK_dischargevars(fs, v);
-        }
+        return exits;
+#else
+        return NO_JUMP;
 #endif
-        return;
       }
     }
   }
 }
 
+/* ends a conditional expression (by fixing up the list of TESTSET instructions used) */
+static void endcondexp(LexState* ls, expdesc* v, int exits) {
+  if (exits != NO_JUMP) {
+    FuncState *fs = ls->fs;
+    luaK_concat(fs, &v->f, exits);
+    luaK_exp2anyreg(fs, v);
+  }
+}
+
+static void suffixedexp(LexState *ls, expdesc *v) {
+  /* suffixedexp ->
+     primaryexp { '.' NAME | '[' exp ']' | ':' NAME funcargs | funcargs } */
+  int exits = suffixedcondexp(ls, v);
+  endcondexp(ls, v, exits);
+}
 
 static void simpleexp (LexState *ls, expdesc *v) {
   /* simpleexp -> FLT | INT | STRING | NIL | TRUE | FALSE | ... |
@@ -2084,7 +2094,7 @@ static void exprstat (LexState *ls) {
   /* stat -> func | assignment */
   FuncState *fs = ls->fs;
   struct LHS_assign v;
-  suffixedexp(ls, &v.v);
+  int exits = suffixedcondexp(ls, &v.v);
   if (ls->t.token == '=' || ls->t.token == ','
 #if defined(GRIT_POWER_INTABLE)
     || ls->t.token == TK_IN
@@ -2092,17 +2102,19 @@ static void exprstat (LexState *ls) {
   ) { /* stat -> assignment ? */
     v.prev = NULL;
     restassign(ls, &v, 1);
+    endcondexp(ls, &v.v, exits);
   }
 #if defined(GRIT_POWER_COMPOUND)
   else if (opeqexpr(ls->t.token)) { /* restassign -> opeq expr */
     compound_assignment(ls, &v.v);
+    endcondexp(ls, &v.v, exits);
   }
 #endif
   else {  /* stat -> func */
-    Instruction *inst;
-    check_condition(ls, v.v.k == VCALL, "syntax error");
-    inst = &getinstruction(fs, &v.v);
-    SETARG_C(*inst, 1);  /* call statement uses no results */
+    endcondexp(ls, &v.v, exits);
+    Instruction *inst = &fs->f->code[fs->pc - 1];
+    check_condition(ls, GET_OPCODE(*inst) == OP_CALL, "syntax error");
+    SETARG_C(*inst, 1); /* call statement uses no results */
   }
 }
 
