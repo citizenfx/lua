@@ -354,43 +354,6 @@ LUA_API int glm_pushmat(lua_State *L, const glmMatrix &m);
   );
 #endif
 
-/// <summary>
-/// A union for aliasing the Lua vector definition (lua_Float4) with the GLM
-/// vector definition. As these structures are byte-wise identical, no alignment
-/// or strict-aliasing issues should exist.
-/// </summary>
-union glmVectorBoundary {
-  glmVector glm;
-  lua_Float4 lua;
-
-  glmVectorBoundary(const glmVector &_v) : glm(_v) { }
-  glmVectorBoundary(const lua_Float4 &_v) : lua(_v) { }
-};
-
-/// <summary>
-/// A union for aliasing the Lua matrix definition (lua_Mat4) with the GLM
-/// matrix definition.
-/// </summary>
-union glmMatrixBoundary {
-  glmMatrix glm;
-  lua_Mat4 lua;
-
-  glmMatrixBoundary(const glmMatrix &_m) : glm(_m) { }
-  glmMatrixBoundary(const lua_Mat4 &_m) : lua(_m) { }
-};
-
-/* lua_Float4/lua_Mat4 -> glmVector/glmMatrix */
-#define glm_vec_boundary(o) reinterpret_cast<glmVectorBoundary *>(o)->glm
-#define glm_mat_boundary(o) reinterpret_cast<glmMatrixBoundary *>(o)->glm
-#define glm_constvec_boundary(o) reinterpret_cast<const glmVectorBoundary *>(o)->glm
-#define glm_constmat_boundary(o) reinterpret_cast<const glmMatrixBoundary *>(o)->glm
-
-/* glmVector/glmMatrix -> lua_Float4/lua_Mat4 */
-#define lua_vec_boundary(o) reinterpret_cast<glmVectorBoundary *>(o)->lua
-#define lua_mat_boundary(o) reinterpret_cast<glmMatrixBoundary *>(o)->lua
-#define lua_constvec_boundary(o) reinterpret_cast<const glmVectorBoundary *>(o)->lua
-#define lua_constmat_boundary(o) reinterpret_cast<const glmMatrixBoundary *>(o)->lua
-
 #endif
 /* }================================================================== */
 

@@ -96,7 +96,7 @@ namespace glm {
 
   template<length_t L, typename T, qualifier Q>
   GLM_GEOM_QUALIFIER GLM_CONSTEXPR bool equal(Triangle<L, T, Q> const &x, Triangle<L, T, Q> const &y, T eps = epsilon<T>()) {
-    return all_equal(x.a, y.a, eps) && all_equal(x.b, y.b, eps) & all_equal(x.c, y.c, eps);
+    return all_equal(x.a, y.a, eps) && all_equal(x.b, y.b, eps) && all_equal(x.c, y.c, eps);
   }
 
   template<length_t L, typename T, qualifier Q>

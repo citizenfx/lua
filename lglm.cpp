@@ -125,9 +125,6 @@ static int mat_trybinTM(lua_State *L, const TValue *p1, const TValue *p2, StkId 
 /* convert an object to an integer (without string coercion) */
 #define glm_tointeger(o) (ttisinteger(o) ? ivalue(o) : glm_flttointeger(o))
 
-/* raw object fields */
-#define glm_vvalue_raw(o) glm_constvec_boundary(&vvalue_raw(o))
-
 /* Future-proof for when/if quaternions have their own type tag */
 #define glm_vvalue(o) vvalue(o)
 #define glm_vecvalue(o) vecvalue(o)
@@ -135,7 +132,7 @@ static int mat_trybinTM(lua_State *L, const TValue *p1, const TValue *p2, StkId 
 #define glm_setvvalue2s(s, x, o)        \
   LUA_MLM_BEGIN                         \
   TValue *io = s2v(s);                  \
-  glm_vec_boundary(&vvalue_(io)) = (x); \
+  vvalue_(io) = (x);                    \
   settt_(io, (o));                      \
   LUA_MLM_END
 
@@ -322,7 +319,7 @@ void glmVec_get(lua_State *L, const TValue *obj, TValue *key, StkId res) {
         case 4: {
           // Quaternion was swizzled and resultant vector is still normalized.
           // Keep quaternion semantics.
-          if (ttisquat(obj) && glm::isNormalized(glm_vec_boundary(&out).v4, glm::epsilon<glm_Float>())) {
+          if (ttisquat(obj) && glm::isNormalized(out.v4, glm::epsilon<glm_Float>())) {
 #if !defined(GLM_FORCE_QUAT_DATA_XYZW)  // quaternion has WXYZ layout
             out.q = glm::qua<glm_Float>(out.v4.w, out.v4.x, out.v4.y, out.v4.z);
 #endif
@@ -432,11 +429,12 @@ int glmVec_tostr(const TValue *obj, char *buff, size_t len) {
 int glmVec_equalKey(const TValue *k1, const Node *n2, int rtt) {
   // @NOTE: Ideally _glmeq would be used. However, that would put the table in
   // an invalid state: mainposition != equalkey.
+
   switch (withvariant(rtt)) {
-    case LUA_VVECTOR2: return glm_vecvalue(k1).v2 == glm_vvalue_raw(keyval(n2)).v2;
-    case LUA_VVECTOR3: return glm_vecvalue(k1).v3 == glm_vvalue_raw(keyval(n2)).v3;
-    case LUA_VVECTOR4: return glm_vecvalue(k1).v4 == glm_vvalue_raw(keyval(n2)).v4;
-    case LUA_VQUAT: return glm_quatvalue(k1).q == glm_vvalue_raw(keyval(n2)).q;
+    case LUA_VVECTOR2: return glm_vecvalue(k1).v2 == vvalue_raw(keyval(n2)).v2;
+    case LUA_VVECTOR3: return glm_vecvalue(k1).v3 == vvalue_raw(keyval(n2)).v3;
+    case LUA_VVECTOR4: return glm_vecvalue(k1).v4 == vvalue_raw(keyval(n2)).v4;
+    case LUA_VQUAT: return glm_quatvalue(k1).q == vvalue_raw(keyval(n2)).q;
     default:
       return 0;
   }
@@ -561,7 +559,7 @@ static int glmMat_auxset(lua_State *L, const TValue *obj, TValue *key, TValue *v
                : glm_finishset(L, obj, key, val);
   }
 
-  glmMatrix &m = glm_mat_boundary(mvalue_ref(obj));
+  glmMatrix &m = mvalue(obj);
   const glm::length_t dim = i_glmlen(glm_tointeger(key));
   if (ttisvector(val)) {
     const bool expanding = dim <= 4 && (dim == (m.size + 1));
@@ -610,7 +608,7 @@ static int glmMat_auxset(lua_State *L, const TValue *obj, TValue *key, TValue *v
 GCMatrix *glmMat_new(lua_State *L) {
   GCObject *o = luaC_newobj(L, LUA_VMATRIX, sizeof(GCMatrix));
   GCMatrix *mat = gco2mat(o);
-  glm_mat_boundary(&mat->mat4) = glm::identity<glm::mat<4, 4, glm_Float>>();
+  mat->mat4 = glm::identity<glm::mat<4, 4, glm_Float>>();
   return mat;
 }
 
@@ -873,7 +871,7 @@ LUA_API int glm_pushmat(lua_State *L, const glmMatrix &m) {
 
   lua_lock(L);
   mat = glmMat_new(L);
-  glm_mat_boundary(&mat->mat4) = m;
+  mat->mat4 = m;
   glm_setmvalue2s(L, L->top.p, mat);
   api_incr_top(L);
   luaC_checkGC(L);
@@ -1318,7 +1316,7 @@ LUA_API int lua_ismatrix (lua_State *L, int idx, int *size, int *secondary) {
 LUA_API int lua_tomatrix (lua_State *L, int idx, lua_Mat4 *matrix) {
   const TValue *o = glm_index2value(L, idx);
   if (ttismatrix(o) && matrix != GLM_NULLPTR) {
-    *matrix = lua_constmat_boundary(mvalue_ref(o));
+    *matrix = *reinterpret_cast<const lua_Mat4*>(mvalue_ref(o));
     return 1;
   }
   return 0;
@@ -1333,7 +1331,7 @@ LUA_API int lua_pushmatrix (lua_State *L, lua_Mat4 *matrix) {
 #endif
     return 0;
   }
-  return glm_pushmat(L, glmMatrixBoundary(*matrix).glm);
+  return glm_pushmat(L, *reinterpret_cast<const glmMatrix*>(matrix));
 }
 
 /* }================================================================== */
@@ -1615,7 +1613,7 @@ static int glm_createMatrix(lua_State *L, glm::length_t C, glm::length_t R) {
         lua_pushvalue(L, 1);
         lua_lock(L);
         orec = glm_index2value(L, -1);
-        glm_mat_boundary(mvalue_ref(orec)) = result;
+        mvalue(orec) = result;
         lua_unlock(L);
         return 1;
       }
@@ -1731,7 +1729,7 @@ LUA_API int glmVec_qua(lua_State *L) {
 #define glm_newmvalue(L, obj, x, nsize, nsecondary) \
   LUA_MLM_BEGIN                                     \
   GCMatrix *mat = glmMat_new(L);                    \
-  glm_mat_boundary(&(mat->mat4)) = (x);             \
+  mat->mat4 = (x);                                  \
   mat->mat4.size = nsize;                           \
   mat->mat4.secondary = nsecondary;                 \
   glm_setmvalue2s(L, obj, mat);                     \
