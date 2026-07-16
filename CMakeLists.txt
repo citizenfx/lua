@@ -487,6 +487,8 @@ OPTION(GRIT_POWER_EACH "__iter metamethod support; see documentation" ON)
 OPTION(GRIT_POWER_BLOB "Enable an API to create non-internalized contiguous byte sequences" ON)
 OPTION(GRIT_POWER_READLINE_HISTORY "" ON)
 
+OPTION(LUA_CFX_SANITIZE_POINTERS "Avoid exposing the raw address of pointers" ON)
+
 IF( LUA_C99_MATHLIB )
   ADD_COMPILE_DEFINITIONS(LUA_C99_MATHLIB)
 ENDIF()
@@ -563,6 +565,10 @@ ENDIF()
 
 IF( GRIT_POWER_READLINE_HISTORY )
   ADD_COMPILE_DEFINITIONS(GRIT_POWER_READLINE_HISTORY)
+ENDIF()
+
+IF( LUA_CFX_SANITIZE_POINTERS )
+  ADD_COMPILE_DEFINITIONS(LUA_CFX_SANITIZE_POINTERS)
 ENDIF()
 
 #######################################
