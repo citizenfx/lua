@@ -403,39 +403,41 @@ GLM_BINDING_QUALIFIER(mat_mul) {
     case LUA_VFALSE: case LUA_VTRUE:
     case LUA_VNUMINT:
     case LUA_VNUMFLT: {  // number * matrix
-      switch (gm_cols(_tv2)) {
-        case 2: {
-          switch (gm_rows(_tv2)) {
-            case 2: TRAITS_FUNC(LB, operator*, gLuaFloat, gLuaMat2x2<>); break;
-            case 3: TRAITS_FUNC(LB, operator*, gLuaFloat, gLuaMat2x3<>); break;
-            case 4: TRAITS_FUNC(LB, operator*, gLuaFloat, gLuaMat2x4<>); break;
-            default:
-              break;
+      if (ttismatrix(_tv2)) {
+        switch (gm_cols(_tv2)) {
+          case 2: {
+            switch (gm_rows(_tv2)) {
+              case 2: TRAITS_FUNC(LB, operator*, gLuaFloat, gLuaMat2x2<>); break;
+              case 3: TRAITS_FUNC(LB, operator*, gLuaFloat, gLuaMat2x3<>); break;
+              case 4: TRAITS_FUNC(LB, operator*, gLuaFloat, gLuaMat2x4<>); break;
+              default:
+                break;
+            }
+            break;
           }
-          break;
-        }
-        case 3: {
-          switch (gm_rows(_tv2)) {
-            case 2: TRAITS_FUNC(LB, operator*, gLuaFloat, gLuaMat3x2<>); break;
-            case 3: TRAITS_FUNC(LB, operator*, gLuaFloat, gLuaMat3x3<>); break;
-            case 4: TRAITS_FUNC(LB, operator*, gLuaFloat, gLuaMat3x4<>); break;
-            default:
-              break;
+          case 3: {
+            switch (gm_rows(_tv2)) {
+              case 2: TRAITS_FUNC(LB, operator*, gLuaFloat, gLuaMat3x2<>); break;
+              case 3: TRAITS_FUNC(LB, operator*, gLuaFloat, gLuaMat3x3<>); break;
+              case 4: TRAITS_FUNC(LB, operator*, gLuaFloat, gLuaMat3x4<>); break;
+              default:
+                break;
+            }
+            break;
           }
-          break;
-        }
-        case 4: {
-          switch (gm_rows(_tv2)) {
-            case 2: TRAITS_FUNC(LB, operator*, gLuaFloat, gLuaMat4x2<>); break;
-            case 3: TRAITS_FUNC(LB, operator*, gLuaFloat, gLuaMat4x3<>); break;
-            case 4: TRAITS_FUNC(LB, operator*, gLuaFloat, gLuaMat4x4<>); break;
-            default:
-              break;
+          case 4: {
+            switch (gm_rows(_tv2)) {
+              case 2: TRAITS_FUNC(LB, operator*, gLuaFloat, gLuaMat4x2<>); break;
+              case 3: TRAITS_FUNC(LB, operator*, gLuaFloat, gLuaMat4x3<>); break;
+              case 4: TRAITS_FUNC(LB, operator*, gLuaFloat, gLuaMat4x4<>); break;
+              default:
+                break;
+            }
+            break;
           }
-          break;
+          default:
+            break;
         }
-        default:
-          break;
       }
       break;
     }
