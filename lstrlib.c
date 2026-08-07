@@ -267,8 +267,10 @@ static int str_concat (lua_State *L) {
 static int str_tostringall (lua_State *L) {
   int i;
   const int top = lua_gettop(L);
-  for (i = 1; i <= top; i++)
+  for (i = 1; i <= top; i++) {
     luaL_tolstring(L, i, NULL);
+    lua_replace(L, i);
+  }
   return top;
 }
 #endif
