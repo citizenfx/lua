@@ -244,6 +244,7 @@ GLM_BINDING_QUALIFIER(unpack) {
       case LUA_TVECTOR: glm_unpack_vector(LB.L, LB.idx); break;
       case LUA_TMATRIX: glm_unpack_matrix(LB.L, LB.idx); break;
       default: {
+        luaL_checkstack(L, 1, "unpack");
         lua_pushvalue(LB.L, LB.idx);
         break;
       }
