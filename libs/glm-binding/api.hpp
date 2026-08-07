@@ -208,7 +208,8 @@ TRAITS_LAYOUT_DEFN(anyNotEqual, glm::any_notequal, EQUAL, void)  /* LUA_VECTOR_E
 GLM_BINDING_QUALIFIER(hash) {
   GLM_BINDING_BEGIN
   while (LB.idx <= LB.top()) {
-    const TValue *_tv = glm_i2v(LB.L, LB.idx);
+    int idx = LB.idx;
+    const TValue *_tv = glm_i2v(LB.L, idx);
     switch (ttypetag(_tv)) {
       case LUA_VTRUE:
       case LUA_VFALSE: STD_HASH(LB, std::hash, gLuaTrait<bool>); break;
@@ -222,10 +223,11 @@ GLM_BINDING_QUALIFIER(hash) {
       case LUA_VQUAT: STD_HASH(LB, std::hash, gLuaQuat<>); break;
       case LUA_VMATRIX: PARSE_MATRIX(LB, _tv, std::hash, STD_HASH); break;
       default:
-        return luaL_typeerror(LB.L, LB.idx, LABEL_VECTOR " or " LABEL_QUATERN " or " LABEL_MATRIX);
+        return luaL_typeerror(LB.L, idx, LABEL_VECTOR " or " LABEL_QUATERN " or " LABEL_MATRIX);
     }
+    lua_replace(LB.L, idx);
   }
-  return _gettop(LB.L) - LB.top();
+  return LB.top();
   GLM_BINDING_END;
 }
 #endif
