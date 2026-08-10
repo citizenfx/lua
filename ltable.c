@@ -1030,6 +1030,10 @@ void luaH_wipetable (Table *t) {
 }
 
 void luaH_clonetable (lua_State *L, const Table *from, Table *to) {
+  if (from == to) {
+    return;
+  }
+
   const unsigned int from_realasize = luaH_realasize(from);
   const unsigned int to_realasize = luaH_realasize(to);
 
