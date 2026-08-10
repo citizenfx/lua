@@ -549,6 +549,11 @@ struct lua_Debug {
 
 LUA_API int lua_toprotos (lua_State* L, int idx);
 
+#define LUA_OPAQUEID_FMT "%016" LUA_INTEGER_FRMLEN "x"
+
+/* get or create a unique identifier for the value at the given index */
+LUA_API lua_Integer lua_opaqueid(lua_State *L, int idx);
+
 /* }====================================================================== */
 
 

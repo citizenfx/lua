@@ -1460,6 +1460,10 @@ static int str_format (lua_State *L) {
           break;
         }
         case 'p': {
+#if defined(LUA_CFX_SANITIZE_POINTERS)
+          lua_Integer id = lua_opaqueid(L, arg);
+          nb = l_sprintf(buff, maxitem, LUA_OPAQUEID_FMT, (LUAI_UACINT)id);
+#else
           const void *p = lua_topointer(L, arg);
           checkformat(L, form, L_FMTFLAGSC, 0);
           if (p == NULL) {  /* avoid calling 'printf' with argument NULL */
@@ -1467,6 +1471,7 @@ static int str_format (lua_State *L) {
             form[strlen(form) - 1] = 's';  /* format it as a string */
           }
           nb = l_sprintf(buff, maxitem, form, p);
+#endif
           break;
         }
         case 'q': {

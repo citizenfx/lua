@@ -1658,3 +1658,48 @@ LUA_API int lua_toprotos (lua_State* L, int idx) {
 LUA_API const TValue *lua_getvalue (lua_State* L, int idx) {
   return index2value(L, idx);
 }
+
+
+static lua_Integer g_opaqueIdCounter = 0;
+
+/* get or create a unique identifier for the value at the given index */
+LUA_API lua_Integer lua_opaqueid(lua_State *L, int idx) {
+  int tt;
+  lua_Integer id;
+  idx = lua_absindex(L, idx);
+
+  if (lua_topointer(L, idx) == NULL) {
+    return 0;
+  }
+
+  lua_rawgetp(L, LUA_REGISTRYINDEX, &g_opaqueIdCounter);
+
+  if (lua_isnil(L, -1)) {
+    lua_pop(L, 1);
+    lua_newtable(L);
+
+    lua_newtable(L);  // metatable
+    lua_pushliteral(L, "k");
+    lua_setfield(L, -2, "__mode");  // weak keys
+    lua_setmetatable(L, -2);
+
+    lua_pushvalue(L, -1);
+    lua_rawsetp(L, LUA_REGISTRYINDEX, &g_opaqueIdCounter);
+  }
+
+  lua_pushvalue(L, idx);  // push the object
+  tt = lua_rawget(L, -2);  // idTable[object]
+
+  if (tt == LUA_TNUMBER) {
+    id = lua_tointeger(L, -1);
+  }
+  else {
+    id = (++g_opaqueIdCounter * 0x4F1BBCDCBFA53E09) & 0x7FFFFFFFFFFFFFFF;
+    lua_pushvalue(L, idx);  // push the object
+    lua_pushinteger(L, id);
+    lua_rawset(L, -4);
+  }
+
+  lua_pop(L, 2);  // pop id + idTable
+  return id;
+}

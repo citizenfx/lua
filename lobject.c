@@ -516,11 +516,15 @@ const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
         break;
       }
       case 'p': {  /* a pointer */
-        const int sz = 3 * sizeof(void*) + 8; /* enough space for '%p' */
+#if defined(LUA_CFX_SANITIZE_POINTERS)
+        addstr2buff(&buff, "<pointer>", 9);
+#else
+        const int sz = 3 * sizeof(void *) + 8; /* enough space for '%p' */
         char *bf = getbuff(&buff, sz);
         void *p = va_arg(argp, void *);
         int len = lua_pointer2str(bf, sz, p);
         addsize(&buff, len);
+#endif
         break;
       }
       case 'U': {  /* a 'long' as a UTF-8 sequence */
@@ -600,4 +604,3 @@ void luaO_chunkid (char *out, const char *source, size_t srclen) {
     memcpy(out, POS, (LL(POS) + 1) * sizeof(char));
   }
 }
-
