@@ -493,6 +493,8 @@ LUA_API void (lua_closeslot) (lua_State *L, int idx);
 #define LUA_HOOKLINE	2
 #define LUA_HOOKCOUNT	3
 #define LUA_HOOKTAILCALL 4
+#define LUA_HOOKCOENTER 5
+#define LUA_HOOKCOEXIT 6
 
 
 /*
@@ -502,6 +504,8 @@ LUA_API void (lua_closeslot) (lua_State *L, int idx);
 #define LUA_MASKRET	(1 << LUA_HOOKRET)
 #define LUA_MASKLINE	(1 << LUA_HOOKLINE)
 #define LUA_MASKCOUNT	(1 << LUA_HOOKCOUNT)
+#define LUA_MASKCOENTER	(1 << LUA_HOOKCOENTER)
+#define LUA_MASKCOEXIT	(1 << LUA_HOOKCOEXIT)
 
 
 LUA_API int (lua_getstack) (lua_State *L, int level, lua_Debug *ar);
