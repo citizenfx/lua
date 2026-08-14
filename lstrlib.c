@@ -1460,7 +1460,7 @@ static int str_format (lua_State *L) {
           break;
         }
         case 'p': {
-#if defined(LUA_CFX_SANITIZE_POINTERS)
+#if defined(LUA_SANDBOX)
           lua_Integer id = lua_opaqueid(L, arg);
           nb = l_sprintf(buff, maxitem, LUA_OPAQUEID_FMT, (LUAI_UACINT)id);
 #else

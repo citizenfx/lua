@@ -931,7 +931,7 @@ LUALIB_API const char *luaL_tolstring (lua_State *L, int idx, size_t *len) {
         int tt = luaL_getmetafield(L, idx, "__name");  /* try name */
         const char *kind = (tt == LUA_TSTRING) ? lua_tostring(L, -1) :
                                                  luaL_typename(L, idx);
-#if defined(LUA_CFX_SANITIZE_POINTERS)
+#if defined(LUA_SANDBOX)
         char buff[64];
         lua_Integer id = lua_opaqueid(L, idx);
         l_sprintf(buff, 64, LUA_OPAQUEID_FMT, (LUAI_UACINT)id);

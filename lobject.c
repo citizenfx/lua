@@ -516,7 +516,7 @@ const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
         break;
       }
       case 'p': {  /* a pointer */
-#if defined(LUA_CFX_SANITIZE_POINTERS)
+#if defined(LUA_SANDBOX)
         addstr2buff(&buff, "<pointer>", 9);
 #else
         const int sz = 3 * sizeof(void *) + 8; /* enough space for '%p' */

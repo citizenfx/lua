@@ -455,7 +455,7 @@ ENDIF()
 #######################################
 
 OPTION(LUA_C99_MATHLIB "Enable extended C99/C++11 " ON)
-OPTION(LUA_SANDBOX "Initial sandboxing support (hide additional ldblib fields)" OFF)
+OPTION(LUA_SANDBOX "Initial sandboxing support (hide additional ldblib fields)" ON)
 OPTION(LUA_NO_DUMP "Disable the dump module (dump Lua functions as precompiled chunk) " OFF)
 OPTION(LUA_NO_BYTECODE "Disables the usage of lua_load with binary (precompiled) chunks" OFF)
 OPTION(LUA_NO_PARSER "Compile the Lua core so it does not contain the parsing \
@@ -486,8 +486,6 @@ OPTION(GRIT_POWER_CHRONO "Enable nanosecond resolution timers and x86 rdtsc samp
 OPTION(GRIT_POWER_EACH "__iter metamethod support; see documentation" ON)
 OPTION(GRIT_POWER_BLOB "Enable an API to create non-internalized contiguous byte sequences" ON)
 OPTION(GRIT_POWER_READLINE_HISTORY "" ON)
-
-OPTION(LUA_CFX_SANITIZE_POINTERS "Avoid exposing the raw address of pointers" ON)
 
 IF( LUA_C99_MATHLIB )
   ADD_COMPILE_DEFINITIONS(LUA_C99_MATHLIB)
@@ -565,10 +563,6 @@ ENDIF()
 
 IF( GRIT_POWER_READLINE_HISTORY )
   ADD_COMPILE_DEFINITIONS(GRIT_POWER_READLINE_HISTORY)
-ENDIF()
-
-IF( LUA_CFX_SANITIZE_POINTERS )
-  ADD_COMPILE_DEFINITIONS(LUA_CFX_SANITIZE_POINTERS)
 ENDIF()
 
 #######################################
