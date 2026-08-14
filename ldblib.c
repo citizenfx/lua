@@ -50,9 +50,13 @@ static int db_getregistry(lua_State *L) {
 static int db_getmetatable (lua_State *L) {
   luaL_checkany(L, 1);
   if (!lua_getmetatable(L, 1)) {
-    lua_pushnil(L);  /* no metatable */
+    lua_pushnil(L);
+    return 1;  /* no metatable */
   }
-  return 1;
+#if defined(LUA_SANDBOX)
+  luaL_getmetafield(L, 1, "__metatable");
+#endif
+  return 1;  /* returns either __metatable field (if present) or metatable */
 }
 
 
@@ -63,6 +67,8 @@ static int db_setmetatable (lua_State *L) {
   /* block setting the mt of a userdata value, or the global mt for lightuserdata */
   t = lua_type(L, 1);
   luaL_argexpected(L, t != LUA_TUSERDATA && t != LUA_TLIGHTUSERDATA, 1, "non-userdata");
+  if (l_unlikely(luaL_getmetafield(L, 1, "__metatable") != LUA_TNIL))
+    return luaL_error(L, "cannot change a protected metatable");
 #endif
   lua_settop(L, 2);
   lua_setmetatable(L, 1);
@@ -272,7 +278,11 @@ static int db_setlocal (lua_State *L) {
 static int auxupvalue (lua_State *L, int get) {
   const char *name;
   int n = (int)luaL_checkinteger(L, 2);  /* upvalue index */
+#if defined(LUA_SANDBOX)
+  luaL_argcheck(L, lua_isfunction(L, 1) && !lua_iscfunction(L, 1), 1, "Lua function expected");
+#else
   luaL_checktype(L, 1, LUA_TFUNCTION);  /* closure */
+#endif
   name = get ? lua_getupvalue(L, 1, n) : lua_setupvalue(L, 1, n);
   if (name == NULL) return 0;
   lua_pushstring(L, name);

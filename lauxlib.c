@@ -312,6 +312,60 @@ LUALIB_API int luaL_execresult (lua_State *L, int stat) {
 ** =======================================================
 */
 
+#if defined(LUA_SANDBOX)
+static void exactargs(lua_State* L, int expected) {
+  int nargs = lua_gettop(L);
+  if (nargs != expected)
+    luaL_error(L, "expected %d arguments, got %d", expected, nargs);
+}
+
+/* a list of names of userdata metatable fields which can not be modified by lua code */
+static const char *const protectedmetanames[] {
+  "__metatable", /* used by the lua [get/set]metatable functions to hide the real metatable */
+  "__gc", /* used by userdata to cleanup any native state */
+  NULL
+};
+
+/*
+** All writes from lua to the real metatable should go through this function.
+*/
+static int proxymetanewindex(lua_State* L) {
+  exactargs(L, 3);
+  luaL_checktype(L, 1, LUA_TTABLE);
+  if (luaL_getmetafield(L, 1, "__index") != LUA_TTABLE)
+    luaL_error(L, "failed to retrieve real metatable");
+  lua_replace(L, 1); /* replace the target table with the real one */
+  if (lua_type(L, 2) == LUA_TSTRING) {
+    const char* key = lua_tostring(L, 2);
+    const char* const* names = protectedmetanames;
+    for (; *names; ++names) {
+      if (strcmp(key, *names) == 0)
+        luaL_error(L, "metatable variable '%s' is read-only", *names);
+    }
+  }
+  lua_settable(L, 1); /* attempt to write to the real table */
+  return 0;
+}
+
+/*
+** When adding a new field to the real metatable, if the value is equal to the metatable, replace it with the proxy.
+** This is to handle the `mt.__index = mt` idiom from exposing the real metatable to lua.
+*/
+static int metametanewindex(lua_State* L) {
+  exactargs(L, 3);
+  luaL_checktype(L, 1, LUA_TTABLE);
+  if (lua_rawequal(L, 1, 3)) {
+    lua_pop(L, 1);
+    lua_pushstring(L, "__metatable");
+    if (lua_rawget(L, 1) != LUA_TTABLE)
+      luaL_error(L, "failed to retrieve proxy metatable");
+  }
+  lua_rawset(L, 1);
+  return 0;
+}
+#endif
+
+
 LUALIB_API int luaL_newmetatable (lua_State *L, const char *tname) {
   if (luaL_getmetatable(L, tname) != LUA_TNIL)  /* name already in use? */
     return 0;  /* leave previous value on top, but return 0 */
@@ -319,6 +373,23 @@ LUALIB_API int luaL_newmetatable (lua_State *L, const char *tname) {
   lua_createtable(L, 0, 2);  /* create metatable */
   lua_pushstring(L, tname);
   lua_setfield(L, -2, "__name");  /* metatable.__name = tname */
+#if defined(LUA_SANDBOX)
+  lua_createtable(L, 0, 1); /* create metametatable */
+  lua_pushcfunction(L, metametanewindex);
+  lua_setfield(L, -2, "__newindex"); /* metametatable.__newindex = metametanewindex */
+  lua_setmetatable(L, -2); /* set real metatable = metametatable */
+
+  lua_newtable(L); /* create proxy table */
+  lua_createtable(L, 0, 3); /* create proxy metatable */
+  lua_pushvalue(L, -3);
+  lua_setfield(L, -2, "__index");  /* proxymt.__index = metatable */
+  lua_pushcfunction(L, proxymetanewindex);
+  lua_setfield(L, -2, "__newindex");  /* proxymt.__newindex = proxymetanewindex */
+  lua_pushvalue(L, -2);
+  lua_setfield(L, -2, "__metatable");  /* proxymt.__metatable = proxy */
+  lua_setmetatable(L, -2); /* set proxy metatable = proxymt */
+  lua_setfield(L, -2, "__metatable");  /* metatable.__metatable = proxy */
+#endif
   lua_pushvalue(L, -1);
   lua_setfield(L, LUA_REGISTRYINDEX, tname);  /* registry.name = metatable */
   return 1;
