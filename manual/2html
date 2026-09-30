@@ -30,7 +30,7 @@ by Roberto Ierusalimschy, Luiz Henrique de Figueiredo, Waldemar Celes
 <p>
 <small>
 <a href="http://www.lua.org/copyright.html">Copyright</a>
-&copy; 2025 Lua.org, PUC-Rio.  All rights reserved.
+&copy; 2026 Lua.org, PUC-Rio.  All rights reserved.
 </small>
 <hr>
 
@@ -58,7 +58,7 @@ end
 
 local function compose (f,g)
   assert(f and g)
-  return function (s) return g(f(s)) end
+  return function (...) return g(f(...)) end
 end
 
 local function concat (f, g)
@@ -395,9 +395,10 @@ APIEntry = function (e)
   local apiicmd, ne = string.match(e, "^(.-</span>)(.*)")
 --io.stderr:write(e)
   if not apiicmd then
-    return antipara(Tag.hr() .. Tag.h3(a)) .. Tag.pre(h) .. e
+    return antipara(Tag.hr() .. Tag.h3(a)) .. Tag.pre(h, {class="api"}) .. e
   else
-    return antipara(Tag.hr() .. Tag.h3(a)) .. apiicmd .. Tag.pre(h) .. ne
+    return antipara(Tag.hr() .. Tag.h3(a)) .. apiicmd ..
+                    Tag.pre(h, {class="api"}) .. ne
   end
 end,
 
