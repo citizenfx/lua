@@ -307,7 +307,7 @@ OPTION(EMERGENCYGCTESTS "Forces an emergency collection at every single allocati
 OPTION(EXTERNMEMCHECK "Removes internal consistency checking of blocks being deallocated " OFF)
 OPTION(LUA_NOCVTN2S "Turn off automatic coercion from numbers to strings" OFF)
 OPTION(LUA_NOCVTS2N "Turn off automatic coercion from strings to numbers" OFF)
-OPTION(LUA_COMPAT_5_3 "Controls other macros for compatibility with Lua 5.3" ON)
+OPTION(LUA_COMPAT_5_3 "Controls other macros for compatibility with Lua 5.3" OFF)
 OPTION(LUA_COMPAT_5_4_0 "Controls other macros for compatibility with Lua 5.4.0" OFF)
 OPTION(LUA_COMPAT_MATHLIB "Controls the presence of several deprecated functions in the mathematical library." ON)
 OPTION(LUA_USE_JUMPTABLE "Force the use of jump tables in the main interpreter loop" OFF)
